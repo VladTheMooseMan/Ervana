@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { motion } from "framer-motion";
 import type { NPCCard } from "./types";
 import { useAppStore } from "./store/appStore";
+import { supabase } from "./supabase";
+import type { Session } from "@supabase/supabase-js";
 import { CardBuilder } from "./components/CardBuilder";
 import { CardLibrary } from "./components/CardLibrary";
 import { CardWeb } from "./components/CardWeb";
@@ -10,6 +12,7 @@ import { SkillsBank } from "./components/SkillsBank";
 import { DamageTypesBank } from "./components/DamageTypesBank";
 import { CreatureTypesBank } from "./components/CreatureTypesBank";
 import { PrintQueue } from "./components/PrintQueue";
+import { Login } from "./components/Login";
 
 type Tab = "builder" | "library" | "web" | "skills" | "damage" | "creatures" | "print";
 const TAB_LABELS: { id: Tab; label: string }[] = [
@@ -23,15 +26,44 @@ const TAB_LABELS: { id: Tab; label: string }[] = [
 ];
 
 export default function App() {
-  const { cards, skills, damageTypes, creatureTypes, update, saveCard, deleteCard } = useAppStore();
+  const { saveCard, deleteCard, hydrate, loaded } = useAppStore();
   const [tab, setTab] = useState<Tab>("builder");
   const [editingCard, setEditingCard] = useState<NPCCard | undefined>(undefined);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Watch Supabase auth session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthChecked(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Hydrate shared state once authed
+  useEffect(() => {
+    if (session && !loaded) hydrate();
+  }, [session, loaded, hydrate]);
 
   const handleSaveCard = (card: NPCCard) => {
     saveCard(card);
     setTab("library");
     setEditingCard(undefined);
   };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+  };
+
+  if (!authChecked) {
+    return <div className="min-h-screen bg-wood-pattern flex items-center justify-center text-custom-brown font-cinzel">Loading…</div>;
+  }
+  if (!session) {
+    return <Login onAuthed={() => { /* onAuthStateChange updates session */ }} />;
+  }
 
   return (
     <div className="min-h-screen bg-wood-pattern text-custom-brown">
@@ -42,7 +74,7 @@ export default function App() {
           </h1>
           <p className="text-custom-brown text-xs m-0 tracking-widest">LARP CHARACTER AND CREATURE CARD BUILDER, CATALOG, AND LIBRARY</p>
         </div>
-        <nav className="flex gap-1 flex-wrap">
+        <nav className="flex gap-1 flex-wrap items-center">
           {TAB_LABELS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} className={clsx(
               "border rounded-md px-3 py-1.5 cursor-pointer font-cinzel text-xs tracking-wider transition-all duration-150",
@@ -54,6 +86,13 @@ export default function App() {
               {t.label}
             </button>
           ))}
+          <button
+            onClick={handleSignOut}
+            title={session.user.email ?? ''}
+            className="ml-2 border border-custom-brown/40 rounded-md px-3 py-1.5 cursor-pointer font-cinzel text-xs tracking-wider bg-transparent text-custom-brown hover:bg-black/10"
+          >
+            Sign Out
+          </button>
         </nav>
       </header>
 
