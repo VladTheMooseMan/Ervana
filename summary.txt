@@ -1,0 +1,12 @@
+Broken Down Simplified Summary:
+
+1.  **Understand the Goal:** The user wants to turn a Figma design into a functional web application. They also want me to make it better.
+
+2.  **My Plan:**
+    *   **Step 1: See the Design:** I need to find the Figma design the user is talking about. I'll check the open browser tabs.
+    *   **Step 2: Make a Blueprint:** Once I see the design, I'll create a detailed plan. This plan will cover the technology I'll use, the different parts of the application, and how they fit together.
+    *   **Step 3: Build the App:** I'll write the code for the web app, following the blueprint.
+    *   **Step 4: Make it Better:** I'll look for ways to improve the app. This could be making it faster, easier to use, or adding new features.
+    *   **Step 5: Get it Running:** I'll set up the app so it can be accessed on the web.
+
+3.  **Keeping Track:** I'll use `memory.txt` to remember the project rules and `Dictionary.txt` to keep a list of all the code I write. This will help me stay organized and work efficiently.

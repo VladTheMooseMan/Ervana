@@ -1,0 +1,10 @@
+{
+  "description": "Create and organize customizable DND-style NPC cards with categorized skills, searchable banks, and editable formatting for immersive LARP gameplay.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
