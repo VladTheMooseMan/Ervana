@@ -4,14 +4,17 @@ import type { NPCCard, CreatureType } from "../types";
 import { useAppStore } from "../store/appStore";
 import { applyFmt } from "../utils";
 import { CardPreview } from "./CardPreview";
+import { NotesEditor } from "./NotesEditor";
 
 export function CardLibrary({ onEdit, onDelete }: {
   onEdit: (c: NPCCard) => void; onDelete: (id: string) => void;
 }) {
-  const { cards, skills, creatureTypes } = useAppStore();
+  const { cards, creatureTypes } = useAppStore();
   const [query, setQuery] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [notesId, setNotesId] = useState<string | null>(null);
   const previewCard = previewId ? cards.find(c => c.id === previewId) : null;
+  const notesCard = notesId ? cards.find(c => c.id === notesId) : null;
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -56,6 +59,7 @@ export function CardLibrary({ onEdit, onDelete }: {
                   </div>
                   <div className="flex gap-1.5">
                     <button className="bg-paper-dark border border-custom-brown/50 rounded-md text-[#2a1608] px-3 py-1 cursor-pointer font-serif text-xs font-semibold hover:bg-custom-tan" onClick={() => onEdit(card)}>Edit</button>
+                    <button className="bg-paper-dark border border-custom-brown/50 rounded-md text-[#2a1608] px-2 py-1 cursor-pointer font-serif text-xs font-semibold hover:bg-custom-tan" title="Edit notes" onClick={() => setNotesId(card.id)}>📝</button>
                     <button className="bg-red-100 border border-red-500 rounded-md text-red-800 px-2.5 py-1 cursor-pointer text-xs font-bold hover:bg-red-200" onClick={() => {
                       if (window.confirm(`Are you sure you want to delete ${card.name}?`)) {
                         onDelete(card.id);
@@ -111,6 +115,10 @@ export function CardLibrary({ onEdit, onDelete }: {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {notesCard && (
+        <NotesEditor card={notesCard} onClose={() => setNotesId(null)} />
+      )}
     </div>
   );
 }

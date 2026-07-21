@@ -336,20 +336,19 @@ button:focus-visible {
   }
 
   /* --------- Per-layout: card width + zoom scalar ---------
-     Card native ≈ 460px × 800px. Letter printable = 739 × 979px.
-     Height is the binding constraint (cards can be tall).
-     1-up: zoom 1.22 -> 561×979px (~5.85in wide, 1 per page)
-     2-up: zoom 0.61 -> 281×489px (~2.93in wide, 2 stacked per page)
-     4-up: zoom 0.61 -> 281×489px (~2.93in wide, 2×2 = 4 per page)
+     Card native = 480px × 600px (4:5 ratio). Letter printable = 7.7 × 10.2in.
+     1-up: zoom 1.20 -> 576×720px (~6.0in wide, 1 per page)
+     2-up: zoom 0.70 -> 336×420px (~3.5in wide, 2 stacked per page)
+     4-up: zoom 0.70 -> 336×420px (~3.5in wide, 2×2 = 4 per page)
   */
-  .print-sheet--per-1 { --card-w: 5.85in; }
-  .print-sheet--per-1 .print-card-content { zoom: 1.22; }
+  .print-sheet--per-1 { --card-w: 6.0in; }
+  .print-sheet--per-1 .print-card-content { zoom: 1.20; }
 
-  .print-sheet--per-2 { --card-w: 2.93in; }
-  .print-sheet--per-2 .print-card-content { zoom: 0.61; }
+  .print-sheet--per-2 { --card-w: 3.5in; }
+  .print-sheet--per-2 .print-card-content { zoom: 0.70; }
 
-  .print-sheet--per-4 { --card-w: 2.93in; }
-  .print-sheet--per-4 .print-card-content { zoom: 0.61; }
+  .print-sheet--per-4 { --card-w: 3.5in; }
+  .print-sheet--per-4 .print-card-content { zoom: 0.70; }
 }
 
 

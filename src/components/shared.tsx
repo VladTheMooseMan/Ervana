@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { HexColorPicker } from "react-colorful";
-import type { TextFormat, FrequencyType, SkillCategory, Skill } from "../types";
+import type { TextFormat, FrequencyType, SkillCategory, Skill, SkillIcon as SkillIconType } from "../types";
 import { applyFmt, FONT_OPTS } from "../utils";
 
 export function ColorPopover({ value, onChange }: { value: string; onChange: (c: string) => void }) {
@@ -94,6 +94,56 @@ export function SkillBadge({ category }: { category: SkillCategory }) {
   );
 }
 
+// ── Skill icon ──────────────────────────────────────────────────────────────
+// sword = Attack, shield = Defense, star = Other. Rendered as inline SVG so
+// it inherits currentColor and scales cleanly.
+export function SkillIcon({ kind, size = 16, title }: { kind: SkillIconType; size?: number; title?: string }) {
+  const stroke = "currentColor";
+  const strokeWidth = 1.8;
+  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke, strokeWidth, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const label = title ?? (kind === "sword" ? "Attack" : kind === "shield" ? "Defense" : "Other");
+  if (kind === "sword") {
+    return (
+      <svg {...common} aria-label={label}>
+        <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+        <path d="M13 19l6-6" />
+        <path d="M16 16l4 4" />
+        <path d="M19 21l2-2" />
+      </svg>
+    );
+  }
+  if (kind === "shield") {
+    return (
+      <svg {...common} aria-label={label}>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common} aria-label={label}>
+      <polygon points="12 2 15 9 22 9.3 16.5 14 18.4 21 12 17 5.6 21 7.5 14 2 9.3 9 9" />
+    </svg>
+  );
+}
+
+export function SkillIconPicker({ value, onChange }: { value: SkillIconType; onChange: (v: SkillIconType) => void }) {
+  const opts: { v: SkillIconType; label: string }[] = [
+    { v: "sword",  label: "Attack" },
+    { v: "shield", label: "Defense" },
+    { v: "star",   label: "Other" },
+  ];
+  return (
+    <div className="flex gap-1.5">
+      {opts.map(o => (
+        <button key={o.v} onClick={() => onChange(o.v)} title={o.label}
+          className={`border rounded-md px-2 py-1 cursor-pointer flex items-center gap-1 text-xs font-bold ${value === o.v ? "bg-custom-gold/40 border-custom-gold text-black" : "bg-white/70 border-custom-brown/40 text-black"}`}>
+          <SkillIcon kind={o.v} size={14} /> {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function SkillRow({
   skill, onEdit, onDelete, selectable, selected, onToggle,
 }: {
@@ -104,6 +154,9 @@ export function SkillRow({
     <div onClick={selectable ? onToggle : undefined} className={`skill-row border rounded-lg p-3.5 mb-2 transition-colors ${selectable ? "cursor-pointer" : "cursor-default"} ${selected ? "bg-custom-gold/20 border-custom-gold" : "bg-paper border-custom-brown/30 hover:bg-paper-dark/60"}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 flex-wrap">
+          {skill.iconKind && (
+            <span className="text-[#2a1608]"><SkillIcon kind={skill.iconKind} size={18} /></span>
+          )}
           <span className="text-xl font-cinzel font-bold text-[#2a1608] skill-name" style={applyFmt(skill.nameFormat)}>{skill.name}</span>
           <SkillBadge category={skill.category} />
           {skill.domain && (

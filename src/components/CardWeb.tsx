@@ -2,12 +2,15 @@ import { useState, useMemo } from "react";
 import type { NPCCard, CreatureType } from "../types";
 import { useAppStore } from "../store/appStore";
 import { applyFmt } from "../utils";
+import { NotesEditor } from "./NotesEditor";
 
 type WebAxis = "creatureType" | "tag" | "bodyRange" | "skillCount";
 
 export function CardWeb() {
   const { cards, creatureTypes } = useAppStore();
   const [axis, setAxis] = useState<WebAxis>("creatureType");
+  const [notesId, setNotesId] = useState<string | null>(null);
+  const notesCard = notesId ? cards.find(c => c.id === notesId) : null;
 
   const groups = useMemo<Map<string, NPCCard[]>>(() => {
     const map = new Map<string, NPCCard[]>();
@@ -65,7 +68,10 @@ export function CardWeb() {
                   const types = card.creatureTypeIds.map(id => creatureTypes.find(c => c.id === id)).filter(Boolean) as CreatureType[];
                   return (
                     <div key={card.id} className="bg-white/80 border border-custom-brown/50 rounded-lg p-2.5 px-3.5 shadow-sm">
-                      <div className="font-cinzel font-bold text-[#1a1208] text-sm mb-0.5">{card.name}</div>
+                      <div className="flex justify-between items-start gap-1">
+                        <div className="font-cinzel font-bold text-[#1a1208] text-sm mb-0.5">{card.name}</div>
+                        <button className="border border-custom-brown/40 rounded text-black px-1.5 py-0 text-xs cursor-pointer hover:bg-paper-dark" title="Edit notes" onClick={() => setNotesId(card.id)}>📝</button>
+                      </div>
                       <div className="flex gap-1 flex-wrap">
                         {types.map(t => <span key={t.id} className="text-xs font-semibold" style={applyFmt(t.format)}>[{t.name}]</span>)}
                       </div>
@@ -83,6 +89,7 @@ export function CardWeb() {
           ))}
         </div>
       </div>
+      {notesCard && <NotesEditor card={notesCard} onClose={() => setNotesId(null)} />}
     </div>
   );
 }
