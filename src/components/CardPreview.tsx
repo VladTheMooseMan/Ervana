@@ -1,4 +1,4 @@
-import type { NPCCard, Skill, CreatureType, CardSkillEntry } from "../types";
+import type { NPCCard, Skill, CreatureType, CardSkillEntry, DamageType, CreatureRef, BaseAttack } from "../types";
 import { useAppStore } from "../store/appStore";
 import { applyFmt, freqLabel, buildRichChunks, emptyTraits } from "../utils";
 import { SkillIcon } from "./shared";
@@ -27,6 +27,12 @@ export function CardPreview({ card }: { card: NPCCard }) {
   const referenceableSkills = cardSkills.map(cs => cs.skill);
 
   const descChunks = buildRichChunks(card.description, card.descriptionRanges, damageTypes, referenceableSkills);
+
+  // Aggregate Base Attacks + Weak/Resist/Immune across ALL selected creature types
+  const baseAttacks: BaseAttack[] = types.flatMap(t => t.baseAttacks ?? []);
+  const weaknesses: CreatureRef[] = types.flatMap(t => t.weaknesses ?? []);
+  const resistances: CreatureRef[] = types.flatMap(t => t.resistances ?? []);
+  const immunities: CreatureRef[] = types.flatMap(t => t.immunities ?? []);
 
   return (
     <div
@@ -69,8 +75,36 @@ export function CardPreview({ card }: { card: NPCCard }) {
 
         {/* Two-column body */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Left — Lore (rich-text) */}
+          {/* Left — Base Attacks, Weak/Resist/Immune, then Lore */}
           <div>
+            {baseAttacks.length > 0 && (
+              <div className="mb-2 pb-2 border-b border-black/25">
+                <div className="font-cinzel text-[10px] font-bold text-black uppercase tracking-widest mb-0.5">Base Attacks</div>
+                {baseAttacks.map(a => {
+                  const dt = damageTypes.find(d => d.id === a.damageTypeId);
+                  return (
+                    <div key={a.id} className="text-[11px] leading-tight text-black">
+                      <span className="font-semibold">{a.weaponName}</span>{" "}
+                      <span className="italic text-black/70">({a.attackType})</span>{" "}
+                      — {a.damage} <span style={dt ? applyFmt(dt.format) : undefined}>{dt?.name ?? ""}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {(weaknesses.length + resistances.length + immunities.length) > 0 && (
+              <div className="mb-2 pb-2 border-b border-black/25 text-[11px] leading-snug text-black">
+                {weaknesses.length > 0 && (
+                  <div><span className="font-cinzel font-bold uppercase text-[10px] tracking-wider">Weak to:</span> {renderRefs(weaknesses, damageTypes, skills)}</div>
+                )}
+                {resistances.length > 0 && (
+                  <div><span className="font-cinzel font-bold uppercase text-[10px] tracking-wider">Resist:</span> {renderRefs(resistances, damageTypes, skills)}</div>
+                )}
+                {immunities.length > 0 && (
+                  <div><span className="font-cinzel font-bold uppercase text-[10px] tracking-wider">Immune:</span> {renderRefs(immunities, damageTypes, skills)}</div>
+                )}
+              </div>
+            )}
             {descChunks.length > 0 && (
               <p className="text-black text-[12px] leading-relaxed m-0">
                 {descChunks.map((c, i) => (
@@ -113,6 +147,29 @@ export function CardPreview({ card }: { card: NPCCard }) {
       </div>
     </div>
   );
+}
+
+// Render Weak/Resist/Immune CreatureRef list as comma-separated inline chunks
+// with each damage type formatted per its style and skill references bolded.
+function renderRefs(refs: CreatureRef[], damageTypes: DamageType[], skills: Skill[]) {
+  return refs.map((r, i) => {
+    let node: React.ReactNode = null;
+    if (r.kind === "damage") {
+      const dt = damageTypes.find(d => d.id === r.damageTypeId);
+      node = dt ? <span style={applyFmt(dt.format)}>{dt.name}</span> : null;
+    } else if (r.kind === "skill") {
+      const sk = skills.find(s => s.id === r.skillId);
+      node = sk ? <span style={{ fontWeight: "bold", ...applyFmt(sk.nameFormat) }}>{sk.name}</span> : null;
+    } else {
+      node = <span>{r.text}</span>;
+    }
+    return (
+      <span key={i}>
+        {node}
+        {i < refs.length - 1 ? ", " : ""}
+      </span>
+    );
+  });
 }
 
 // Same treatment as description: auto-color damage types + bold skill
