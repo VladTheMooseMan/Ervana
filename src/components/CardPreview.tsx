@@ -7,8 +7,19 @@ import { SkillIcon } from "./shared";
 // Bumped from prior 460×~600 to give more room for text.
 const CARD_W = 480;
 const CARD_H = 600;
+// Landscape (wide) mode: adds an extra skills column on the right when
+// content is too long for the standard portrait card.
+const CARD_W_WIDE = 720;
 
 const TRAIT_KEYS = ["str", "dex", "int", "wis", "cha", "con"] as const;
+
+// Heuristic — decide when to switch to landscape + 2 skill columns.
+// Sums text length across all skills + a fixed cost per skill for headers.
+// Threshold chosen so ~5+ dense skills triggers wide mode.
+function needsLandscape(cardSkills: { skill: Skill }[]): boolean {
+  const weight = cardSkills.reduce((acc, cs) => acc + cs.skill.rulesText.length + 40, 0);
+  return weight > 900 || cardSkills.length > 6;
+}
 
 export function CardPreview({ card }: { card: NPCCard }) {
   const { skills, creatureTypes, damageTypes } = useAppStore();
@@ -34,10 +45,28 @@ export function CardPreview({ card }: { card: NPCCard }) {
   const resistances: CreatureRef[] = types.flatMap(t => t.resistances ?? []);
   const immunities: CreatureRef[] = types.flatMap(t => t.immunities ?? []);
 
+  const landscape = needsLandscape(cardSkills);
+  // Split skills into two roughly-even columns for landscape mode.
+  // Balance by cumulative text length so both columns fill about the same height.
+  const skillCols: (typeof cardSkills)[] = landscape ? (() => {
+    const total = cardSkills.reduce((a, cs) => a + cs.skill.rulesText.length + 40, 0);
+    const target = total / 2;
+    let running = 0;
+    const left: typeof cardSkills = [];
+    const right: typeof cardSkills = [];
+    for (const cs of cardSkills) {
+      if (running < target) { left.push(cs); running += cs.skill.rulesText.length + 40; }
+      else right.push(cs);
+    }
+    // Guarantee at least one skill in the right column if possible
+    if (right.length === 0 && left.length > 1) right.unshift(left.pop()!);
+    return [left, right];
+  })() : [cardSkills];
+
   return (
     <div
       style={{
-        width: `${CARD_W}px`,
+        width: `${landscape ? CARD_W_WIDE : CARD_W}px`,
         minHeight: `${CARD_H}px`,
         ...(card.backgroundImage ? { backgroundImage: `url(${card.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined),
       }}
@@ -73,8 +102,8 @@ export function CardPreview({ card }: { card: NPCCard }) {
         </div>
         <div className="border-b border-black/40 mt-1.5 mb-3" />
 
-        {/* Two-column body */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Body: 2 cols (portrait) or 3 cols (landscape: lore + skills-A + skills-B) */}
+        <div className={landscape ? "grid grid-cols-3 gap-4" : "grid grid-cols-2 gap-4"}>
           {/* Left — Base Attacks, Weak/Resist/Immune, then Lore */}
           <div>
             {baseAttacks.length > 0 && (
@@ -114,35 +143,37 @@ export function CardPreview({ card }: { card: NPCCard }) {
             )}
           </div>
 
-          {/* Right — Skills */}
-          <div className="border-l border-black/30 pl-3.5">
-            {cardSkills.map(({ entry, skill }) => (
-              <div key={skill.id} className="mb-3">
-                <div className="flex items-baseline gap-1.5 flex-wrap mb-0.5">
-                  {skill.iconKind && (
-                    <span className="text-black self-center"><SkillIcon kind={skill.iconKind} size={14} /></span>
-                  )}
-                  <span className="text-sm tracking-wider text-black font-semibold" style={applyFmt(skill.nameFormat)}>
-                    {skill.name}
-                  </span>
-                  {skill.category !== "PASSIVE" && (
-                    <span className="font-cinzel text-black/70 text-xs">
-                      {freqLabel(entry.frequency)}
+          {/* Right — Skills (1 col portrait, 2 cols landscape) */}
+          {skillCols.map((col, ci) => (
+            <div key={ci} className="border-l border-black/30 pl-3.5">
+              {col.map(({ entry, skill }) => (
+                <div key={skill.id} className="mb-3">
+                  <div className="flex items-baseline gap-1.5 flex-wrap mb-0.5">
+                    {skill.iconKind && (
+                      <span className="text-black self-center"><SkillIcon kind={skill.iconKind} size={14} /></span>
+                    )}
+                    <span className="text-sm tracking-wider text-black font-semibold" style={applyFmt(skill.nameFormat)}>
+                      {skill.name}
                     </span>
-                  )}
-                  {skill.category === "PASSIVE" && (
-                    <span className="italic text-green-700 text-xs">Passive</span>
-                  )}
+                    {skill.category !== "PASSIVE" && (
+                      <span className="font-cinzel text-black/70 text-xs">
+                        {freqLabel(entry.frequency)}
+                      </span>
+                    )}
+                    {skill.category === "PASSIVE" && (
+                      <span className="italic text-green-700 text-xs">Passive</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] leading-normal m-0 text-black" style={applyFmt(skill.rulesFormat)}>
+                    {renderRulesWithRefs(skill.rulesText, damageTypes, referenceableSkills, skill.id)}
+                  </p>
                 </div>
-                <p className="text-[11px] leading-normal m-0 text-black" style={applyFmt(skill.rulesFormat)}>
-                  {renderRulesWithRefs(skill.rulesText, damageTypes, referenceableSkills, skill.id)}
-                </p>
-              </div>
-            ))}
-            {cardSkills.length === 0 && (
-              <p className="text-black/50 text-xs italic">No skills added.</p>
-            )}
-          </div>
+              ))}
+              {ci === 0 && col.length === 0 && (
+                <p className="text-black/50 text-xs italic">No skills added.</p>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
