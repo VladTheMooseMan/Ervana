@@ -14,11 +14,11 @@ const CARD_W_WIDE = 720;
 const TRAIT_KEYS = ["str", "dex", "int", "wis", "cha", "con"] as const;
 
 // Heuristic — decide when to switch to landscape + 2 skill columns.
-// Sums text length across all skills + a fixed cost per skill for headers.
-// Threshold chosen so ~5+ dense skills triggers wide mode.
+// Triggers when either the aggregate text load or skill count would spill
+// past the standard portrait card height.
 function needsLandscape(cardSkills: { skill: Skill }[]): boolean {
   const weight = cardSkills.reduce((acc, cs) => acc + cs.skill.rulesText.length + 40, 0);
-  return weight > 900 || cardSkills.length > 6;
+  return weight > 500 || cardSkills.length >= 5;
 }
 
 export function CardPreview({ card }: { card: NPCCard }) {
