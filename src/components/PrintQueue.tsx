@@ -80,8 +80,9 @@ export function PrintQueue() {
   //   4-up = 3.75in wide (fits two per row, two rows per page)
   // In every case cards float left-to-right and wrap to the next
   // row when full — no overlaps, no cut-offs.
-  const CARD_WIDTH_IN = { 1: 6.0, 2: 3.5, 4: 3.5 } as const;
-
+  
+  const CARD_WIDTH_IN = { 1: 7.7, 2: 3.75, 4: 3.75 } as const;
+  
   const sheetRef = useRef<HTMLDivElement | null>(null);
 
   // ------------------- Empty state -------------------
