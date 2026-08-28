@@ -252,7 +252,7 @@ export function PrintQueue() {
       >
         {queueCards.map(({ entry, card }) => (
           <div key={entry.uid} className="print-card">
-            <div className="print-card-content">
+            <<div className="print-card-content origin-top-left print:scale-[0.80]">
               <CardPreview card={card} />
             </div>
           </div>
