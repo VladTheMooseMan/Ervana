@@ -31,20 +31,26 @@ const CARD_NATIVE_H          = 600;
 
 // Slot size per layout, in inches — used to auto-scale each card.
 // Letter printable ~ 7.7 × 10.2in (with 0.4in margin all sides).
+// Widths leave headroom for the 0.05in inter-slot gap and dashed border.
 const SLOT_IN: Record<PerPage, { w: number; h: number }> = {
-  1: { w: 7.5, h: 10.0 },
-  2: { w: 7.5, h:  4.9 },   // 2 rows × 1 col
-  4: { w: 3.7, h:  4.9 },   // 2 rows × 2 cols
-  6: { w: 3.7, h:  3.3 },   // 3 rows × 2 cols
+  1: { w: 7.4, h: 10.0 },
+  2: { w: 7.4, h:  4.9 },   // 2 rows × 1 col
+  4: { w: 3.65, h: 4.9 },   // 2 rows × 2 cols
+  6: { w: 3.65, h: 3.3 },   // 3 rows × 2 cols
 };
+
+// Slot chrome, in px, taken by border + inner padding on each side.
+// .print-card has 1px dashed border + 0.0625in (6px) padding all sides.
+// Under box-sizing:border-box that eats 14px total from each dimension.
+const SLOT_CHROME_PX = 14;
 
 // Compute the fit-to-slot scale for a given card in a given layout.
 function scaleForCard(card: NPCCard, per: PerPage): number {
   const nativeW = card.useThreeColumns ? CARD_NATIVE_W_WIDE : CARD_NATIVE_W_PORTRAIT;
   const nativeH = CARD_NATIVE_H;
   const slot = SLOT_IN[per];
-  const slotW = slot.w * 96;
-  const slotH = slot.h * 96;
+  const slotW = slot.w * 96 - SLOT_CHROME_PX;
+  const slotH = slot.h * 96 - SLOT_CHROME_PX;
   return Math.min(slotW / nativeW, slotH / nativeH);
 }
 
