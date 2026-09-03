@@ -17,17 +17,42 @@ import { CardPreview } from "./CardPreview";
 // ============================================================
 
 type PageSize = "letter" | "a4";
+type PerPage = 1 | 2 | 4 | 6;
 
 interface QueueEntry {
   uid: string;    // unique per-entry id (allows duplicates of the same cardId)
   cardId: string;
 }
 
+// Native card render sizes (pixels @ 96dpi). Match CardPreview.
+const CARD_NATIVE_W_PORTRAIT = 480;
+const CARD_NATIVE_W_WIDE     = 720;
+const CARD_NATIVE_H          = 600;
+
+// Slot size per layout, in inches — used to auto-scale each card.
+// Letter printable ~ 7.7 × 10.2in (with 0.4in margin all sides).
+const SLOT_IN: Record<PerPage, { w: number; h: number }> = {
+  1: { w: 7.5, h: 10.0 },
+  2: { w: 7.5, h:  4.9 },   // 2 rows × 1 col
+  4: { w: 3.7, h:  4.9 },   // 2 rows × 2 cols
+  6: { w: 3.7, h:  3.3 },   // 3 rows × 2 cols
+};
+
+// Compute the fit-to-slot scale for a given card in a given layout.
+function scaleForCard(card: NPCCard, per: PerPage): number {
+  const nativeW = card.useThreeColumns ? CARD_NATIVE_W_WIDE : CARD_NATIVE_W_PORTRAIT;
+  const nativeH = CARD_NATIVE_H;
+  const slot = SLOT_IN[per];
+  const slotW = slot.w * 96;
+  const slotH = slot.h * 96;
+  return Math.min(slotW / nativeW, slotH / nativeH);
+}
+
 export function PrintQueue() {
   const { cards } = useAppStore();
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [pageSize, setPageSize] = useState<PageSize>("letter");
-  const [cardsPerPage, setCardsPerPage] = useState<1 | 2 | 4>(2);
+  const [cardsPerPage, setCardsPerPage] = useState<PerPage>(2);
   const [search, setSearch] = useState("");
 
   const filteredLibrary = useMemo(() => {
@@ -73,16 +98,6 @@ export function PrintQueue() {
     window.print();
   };
 
-  // Card widths for each "cards per page" setting. Letter printable
-  // width is 7.7in, so:
-  //   1-up = 7.7in wide (one per row, fills page)
-  //   2-up = 3.75in wide (fits two per row)
-  //   4-up = 3.75in wide (fits two per row, two rows per page)
-  // In every case cards float left-to-right and wrap to the next
-  // row when full — no overlaps, no cut-offs.
-  
-  const CARD_WIDTH_IN = { 1: 7.7, 2: 3.75, 4: 3.75 } as const;
-  
   const sheetRef = useRef<HTMLDivElement | null>(null);
 
   // ------------------- Empty state -------------------
@@ -111,10 +126,11 @@ export function PrintQueue() {
           <div className="flex items-center gap-2">
             <label className="text-[#2a1608] text-sm font-cinzel font-bold">Per page:</label>
             <select className="bg-white border border-custom-brown/50 rounded-md text-[#1a1208] px-2 py-1 font-serif text-sm outline-none"
-              value={cardsPerPage} onChange={e => setCardsPerPage(Number(e.target.value) as 1 | 2 | 4)}>
+              value={cardsPerPage} onChange={e => setCardsPerPage(Number(e.target.value) as PerPage)}>
               <option value={1}>1 card</option>
               <option value={2}>2 cards</option>
-              <option value={4}>4 cards</option>
+              <option value={4}>2 × 2 (4 cards)</option>
+              <option value={6}>2 × 3 (6 cards)</option>
             </select>
           </div>
           <button
@@ -241,23 +257,40 @@ export function PrintQueue() {
 
       {/* ==================================================
           PRINT SHEET — hidden on screen, revealed by @media print.
-          Cards are pure CSS: fixed width per layout, float
-          left-to-right, wrap to next row when full, page-break
-          avoided within each card. No JS, no overlaps.
+          Each card is auto-scaled per its own layout (portrait or
+          3-col wide) so the whole card fits its slot. Slots come
+          from a 1 / 2 / 2×2 / 2×3 grid.
           ================================================== */}
       <div
         ref={sheetRef}
         className={`print-sheet print-sheet--${pageSize} print-sheet--per-${cardsPerPage} hidden print:block`}
-        style={{ ["--card-w" as any]: `${CARD_WIDTH_IN[cardsPerPage]}in` }}
       >
-        {queueCards.map(({ entry, card }) => (
-          <div key={entry.uid} className="print-card">
-            {/* Apply zoom directly to the content wrapper */}
-            <div className="print-card-content" style={{ zoom: 0.65 }}> 
-              <CardPreview card={card} />
+        {queueCards.map(({ entry, card }) => {
+          const scale = scaleForCard(card, cardsPerPage);
+          const nativeW = card.useThreeColumns ? CARD_NATIVE_W_WIDE : CARD_NATIVE_W_PORTRAIT;
+          const slot = SLOT_IN[cardsPerPage];
+          return (
+            <div
+              key={entry.uid}
+              className="print-card"
+              style={{
+                width: `${slot.w}in`,
+                height: `${slot.h}in`,
+              }}
+            >
+              <div
+                className="print-card-content"
+                style={{
+                  width: `${nativeW}px`,
+                  transform: `scale(${scale})`,
+                  transformOrigin: "top left",
+                }}
+              >
+                <CardPreview card={card} />
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

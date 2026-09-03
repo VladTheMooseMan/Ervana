@@ -7,11 +7,6 @@ function refLabel(r: CreatureRef, damageTypes: DamageType[], skills: Skill[]): s
   return r.text;
 }
 
-function buildAttackString(a: any, damageTypes: DamageType[]): string {
-  const dt = damageTypes.find(d => d.id === a.damageTypeId)?.name ?? "Unknown";
-  return `${a.attackType}: ${a.weaponName} — ${a.damage} ${dt} damage`;
-}
-
 function buildWeaknessString(ct: CreatureType, damageTypes: DamageType[], skills: Skill[]): string {
   const parts = [
     ct.weaknesses.length > 0 ? `WEAK to ${ct.weaknesses.map(r => refLabel(r, damageTypes, skills)).join(", ")}` : "",
@@ -73,24 +68,6 @@ export function CreatureInfoPanel({ creatureTypes, selectedIds, damageTypes, ski
                   Paste Full Trait Block
                 </button>
               </div>
-            </div>
-          )}
-
-          {ct.baseAttacks.length > 0 && (
-            <div>
-              <div className="text-custom-brown/70 text-xs tracking-widest font-cinzel mb-1">BASE ATTACKS</div>
-              {ct.baseAttacks.map(a => {
-                const str = buildAttackString(a, damageTypes);
-                return (
-                  <div key={a.id} className="flex items-center gap-2 mb-1">
-                    <span className="text-custom-brown text-xs">{str}</span>
-                    <button className="border border-custom-brown/20 rounded-md text-custom-brown px-2 py-0.5 cursor-pointer text-xs hover:bg-paper-dark whitespace-nowrap" onMouseDown={e => { e.preventDefault(); pasteAtCursor(str); }}>Paste</button>
-                  </div>
-                );
-              })}
-              <button className="border border-custom-brown/20 rounded-md text-custom-brown px-2 py-0.5 cursor-pointer text-xs hover:bg-paper-dark whitespace-nowrap mt-1" onMouseDown={e => { e.preventDefault(); pasteAtCursor(ct.baseAttacks.map(a => buildAttackString(a, damageTypes)).join("\n")); }}>
-                Paste All Attacks
-              </button>
             </div>
           )}
         </div>

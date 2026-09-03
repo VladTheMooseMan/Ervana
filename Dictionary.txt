@@ -3,11 +3,13 @@ SCRIPTS & FUNCTIONS CATALOG:
 ----------------------------------------------------------------
 [2026-07-16] | utils.ts | src/utils.ts | Centralized helper functions and shared style objects | N/A | N/A
 [2026-07-16] | shared.tsx | src/components/shared.tsx | Smaller, reusable components | ../utils.ts | N/A
-[2026-07-16] | CardBuilder.tsx | src/components/CardBuilder.tsx | Component for the main card creation form | ../utils.ts, ./shared.tsx | N/A
+[2026-09-03] | CardBuilder.tsx | src/components/CardBuilder.tsx | Card form; adds per-card Base Attacks editor and 2/3-column layout toggle | ../utils.ts, ./shared.tsx | N/A
 [2026-07-16] | CardLibrary.tsx | src/components/CardLibrary.tsx | Component to display the library of saved cards | ../utils.ts, ./shared.tsx | N/A
-[2026-07-16] | CardPreview.tsx | src/components/CardPreview.tsx | Component to show a live preview of the NPC card | ../utils.ts, ./shared.tsx | N/A
+[2026-09-03] | CardPreview.tsx | src/components/CardPreview.tsx | Live preview; reads baseAttacks from card, honours useThreeColumns toggle | ../utils.ts, ./shared.tsx | N/A
 [2026-07-16] | CardWeb.tsx | src/components/CardWeb.tsx | Component for the "Card Web" visualization tab | N/A | N/A
-[2026-07-16] | CreatureInfoPanel.tsx | src/components/CreatureInfoPanel.tsx | Component to display detailed stats for selected creature types | ../utils.ts, ./shared.tsx | N/A
-[2026-07-16] | CreatureTypesBank.tsx | src/components/CreatureTypesBank.tsx | Component for managing creature types | ../utils.ts, ./shared.tsx | N/A
+[2026-09-03] | CreatureInfoPanel.tsx | src/components/CreatureInfoPanel.tsx | Reference panel; Base Attacks removed (now per-card) | ../utils.ts, ./shared.tsx | N/A
+[2026-09-03] | CreatureTypesBank.tsx | src/components/CreatureTypesBank.tsx | Creature type manager; Base Attacks editor removed | ../utils.ts, ./shared.tsx | N/A
 [2026-07-16] | DamageTypesBank.tsx | src/components/DamageTypesBank.tsx | Component for managing damage types | ../utils.ts, ./shared.tsx | N/A
 [2026-07-16] | SkillsBank.tsx | src/components/SkillsBank.tsx | Component for managing the skill bank | ../utils.ts, ./shared.tsx | N/A
+[2026-09-03] | PrintQueue.tsx | src/components/PrintQueue.tsx | Print queue; per-card fit-to-slot scaling for 1/2/2x2/2x3 layouts | ./CardPreview, ../store/appStore | N/A
+[2026-09-03] | types.ts | src/types.ts | Added NPCCard.baseAttacks and NPCCard.useThreeColumns | N/A | N/A

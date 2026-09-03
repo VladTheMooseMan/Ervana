@@ -40,6 +40,7 @@ export function emptyCard(): NPCCard {
     id: uuidv4(), name: "", body: 50, armor: 0, baseDamage: 0,
     creatureTypeIds: [], description: "", descriptionRanges: [], skills: [],
     tags: [], traits: emptyTraits(), notes: "",
+    baseAttacks: [], useThreeColumns: false,
     createdAt: Date.now(), updatedAt: Date.now(),
   };
 }

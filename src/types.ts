@@ -105,6 +105,10 @@ export interface NPCCard {
   tags: string[];
   traits?: CardTraits;
   notes?: string;
+  // Per-card base attacks (moved off CreatureType so each NPC customises)
+  baseAttacks?: BaseAttack[];
+  // Layout toggle — false/undefined = 2 columns (default), true = 3 columns
+  useThreeColumns?: boolean;
   createdAt: number;
   updatedAt: number;
 }

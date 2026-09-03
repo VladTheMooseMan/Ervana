@@ -269,11 +269,9 @@ button:focus-visible {
 
 /* ============================================================
    PRINT STYLES
-   Cards float left-to-right in the print sheet, wrap to the next
-   row when full, and never overlap or split across pages.
-   Card native width is 460px. We scale each card to the target
-   width per layout using CSS `zoom`, which reflows layout so the
-   card's actual box shrinks proportionally.
+   The React sheet supplies each .print-card its slot size and
+   per-card CSS transform to fit the slot. The CSS just lays out
+   the sheet as a wrapping grid of slots with dashed cut lines.
    ============================================================ */
 @media print {
   @page { size: Letter; margin: 0.4in; }
@@ -301,22 +299,18 @@ button:focus-visible {
     align-content: flex-start !important;
     justify-content: flex-start !important;
     align-items: flex-start !important;
-    gap: 0.1in;
+    gap: 0.05in;
     background: white !important;
     padding: 0 !important;
   }
 
-  /* Each cell: dashed cut lines and 1/16" padding around the card.
-     Cell width comes from --card-w (set inline by React per layout).
-     Height is auto so the dashed box hugs the actual card height —
-     the browser wraps to a new row when a full-height card no
-     longer fits on the current row/page.                          */
+  /* Each slot: fixed w/h from React (per layout). Dashed cut lines
+     + tiny inner padding, no overflow so scaled cards stay contained. */
   .print-card {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     box-sizing: border-box;
-    width: calc(var(--card-w) + 0.125in);   /* card width + 2 * 1/16" */
-    padding: 0.0625in;                       /* 1/16" all sides */
+    padding: 0.0625in;
     border: 1px dashed rgba(0, 0, 0, 0.5);
     background: white !important;
     overflow: hidden;
@@ -324,31 +318,14 @@ button:focus-visible {
     display: block;
   }
 
-  /* The CardPreview is natively 460px wide. `zoom` reflows layout
-     so both width and height scale proportionally — the cell's
-     `height: auto` grows to match. Per-layout zoom values are set
-     below.                                                        */
+  /* The card content is transform-scaled inline. Keep it flush
+     to the top-left of the slot so the dashed border wraps it. */
   .print-card-content {
     display: block;
     background: white !important;
     box-shadow: none !important;
     margin: 0 !important;
   }
-
-  /* --------- Per-layout: card width + zoom scalar ---------
-     Card native = 480px × 600px (4:5 ratio). Letter printable = 7.7 × 10.2in.
-     1-up: zoom 1.20 -> 576×720px (~6.0in wide, 1 per page)
-     2-up: zoom 0.70 -> 336×420px (~3.5in wide, 2 stacked per page)
-     4-up: zoom 0.70 -> 336×420px (~3.5in wide, 2×2 = 4 per page)
-  */
-  .print-sheet--per-1 { --card-w: 6.0in; }
-  .print-sheet--per-1 .print-card-content { zoom: 1.20; }
-
-  .print-sheet--per-2 { --card-w: 3.5in; }
-  .print-sheet--per-2 .print-card-content { zoom: 0.70; }
-
-  .print-sheet--per-4 { --card-w: 3.5in; }
-  .print-sheet--per-4 .print-card-content { zoom: 0.70; }
 }
 
 

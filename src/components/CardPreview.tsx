@@ -3,23 +3,14 @@ import { useAppStore } from "../store/appStore";
 import { applyFmt, freqLabel, buildRichChunks, emptyTraits } from "../utils";
 import { SkillIcon } from "./shared";
 
-// Card dimensions: 4:5 ratio (4in × 5in). Rendered at 96 dpi = 384 × 480.
-// Bumped from prior 460×~600 to give more room for text.
+// Card dimensions: 4:5 ratio (portrait) or 3:2 (wide 3-col).
+// Base render size is at 96dpi so 1in = 96px.
 const CARD_W = 480;
 const CARD_H = 600;
-// Landscape (wide) mode: adds an extra skills column on the right when
-// content is too long for the standard portrait card.
+// Landscape (wide) mode used when user opts in to 3 columns.
 const CARD_W_WIDE = 720;
 
 const TRAIT_KEYS = ["str", "dex", "int", "wis", "cha", "con"] as const;
-
-// Heuristic — decide when to switch to landscape + 2 skill columns.
-// Triggers when either the aggregate text load or skill count would spill
-// past the standard portrait card height.
-function needsLandscape(cardSkills: { skill: Skill }[]): boolean {
-  const weight = cardSkills.reduce((acc, cs) => acc + cs.skill.rulesText.length + 40, 0);
-  return weight > 500 || cardSkills.length >= 5;
-}
 
 export function CardPreview({ card }: { card: NPCCard }) {
   const { skills, creatureTypes, damageTypes } = useAppStore();
@@ -39,16 +30,17 @@ export function CardPreview({ card }: { card: NPCCard }) {
 
   const descChunks = buildRichChunks(card.description, card.descriptionRanges, damageTypes, referenceableSkills);
 
-  // Aggregate Base Attacks + Weak/Resist/Immune across ALL selected creature types
-  const baseAttacks: BaseAttack[] = types.flatMap(t => t.baseAttacks ?? []);
+  // Base Attacks now live on the card itself (per-NPC).
+  const baseAttacks: BaseAttack[] = card.baseAttacks ?? [];
+  // Weak/Resist/Immune still aggregate from selected creature types.
   const weaknesses: CreatureRef[] = types.flatMap(t => t.weaknesses ?? []);
   const resistances: CreatureRef[] = types.flatMap(t => t.resistances ?? []);
   const immunities: CreatureRef[] = types.flatMap(t => t.immunities ?? []);
 
-  const landscape = needsLandscape(cardSkills);
-  // Split skills into two roughly-even columns for landscape mode.
-  // Balance by cumulative text length so both columns fill about the same height.
-  const skillCols: (typeof cardSkills)[] = landscape ? (() => {
+  // Layout: default 2 columns, 3 columns when user toggles.
+  const useThree = !!card.useThreeColumns;
+  // Split skills into two roughly-even columns when in 3-column mode.
+  const skillCols: (typeof cardSkills)[] = useThree ? (() => {
     const total = cardSkills.reduce((a, cs) => a + cs.skill.rulesText.length + 40, 0);
     const target = total / 2;
     let running = 0;
@@ -58,7 +50,6 @@ export function CardPreview({ card }: { card: NPCCard }) {
       if (running < target) { left.push(cs); running += cs.skill.rulesText.length + 40; }
       else right.push(cs);
     }
-    // Guarantee at least one skill in the right column if possible
     if (right.length === 0 && left.length > 1) right.unshift(left.pop()!);
     return [left, right];
   })() : [cardSkills];
@@ -66,7 +57,7 @@ export function CardPreview({ card }: { card: NPCCard }) {
   return (
     <div
       style={{
-        width: `${landscape ? CARD_W_WIDE : CARD_W}px`,
+        width: `${useThree ? CARD_W_WIDE : CARD_W}px`,
         minHeight: `${CARD_H}px`,
         ...(card.backgroundImage ? { backgroundImage: `url(${card.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined),
       }}
@@ -102,8 +93,8 @@ export function CardPreview({ card }: { card: NPCCard }) {
         </div>
         <div className="border-b border-black/40 mt-1.5 mb-3" />
 
-        {/* Body: 2 cols (portrait) or 3 cols (landscape: lore + skills-A + skills-B) */}
-        <div className={landscape ? "grid grid-cols-3 gap-4" : "grid grid-cols-2 gap-4"}>
+        {/* Body: 2 cols (default) or 3 cols (opt-in: lore + skills-A + skills-B) */}
+        <div className={useThree ? "grid grid-cols-3 gap-4" : "grid grid-cols-2 gap-4"}>
           {/* Left — Base Attacks, Weak/Resist/Immune, then Lore */}
           <div>
             {baseAttacks.length > 0 && (

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
-import type { NPCCard, SkillCategory, FrequencyType, Skill, CardTraits, FormatRange } from "../types";
+import { v4 as uuidv4 } from "uuid";
+import type { NPCCard, SkillCategory, FrequencyType, Skill, CardTraits, FormatRange, BaseAttack, AttackType } from "../types";
 import { useAppStore } from "../store/appStore";
 import { emptyCard, defaultFreq, applyFmt, emptyTraits } from "../utils";
 import { CardPreview } from "./CardPreview";
@@ -26,12 +27,34 @@ export function CardBuilder({ onSave, editCard, onClear }: {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editCard) { setCard({ ...editCard, traits: editCard.traits ?? emptyTraits() }); setBgPreview(editCard.backgroundImage); }
+    if (editCard) {
+      setCard({
+        ...editCard,
+        traits: editCard.traits ?? emptyTraits(),
+        baseAttacks: editCard.baseAttacks ?? [],
+      });
+      setBgPreview(editCard.backgroundImage);
+    }
   }, [editCard?.id]);
 
   const set = (p: Partial<NPCCard>) => setCard(c => ({ ...c, ...p }));
   const traits = card.traits ?? emptyTraits();
   const setTrait = (k: keyof CardTraits, v: number) => set({ traits: { ...traits, [k]: v } });
+
+  // ── Base Attacks (per-card) ────────────────────────────────────────────
+  const baseAttacks: BaseAttack[] = card.baseAttacks ?? [];
+  const addAttack = () => set({
+    baseAttacks: [
+      ...baseAttacks,
+      { id: uuidv4(), weaponName: "", damage: 3, damageTypeId: damageTypes[0]?.id ?? "", attackType: "Melee" },
+    ],
+  });
+  const updateAttack = (i: number, p: Partial<BaseAttack>) => set({
+    baseAttacks: baseAttacks.map((a, idx) => idx === i ? { ...a, ...p } : a),
+  });
+  const deleteAttack = (i: number) => set({
+    baseAttacks: baseAttacks.filter((_, idx) => idx !== i),
+  });
 
   const toggleSkill = (skillId: string) => {
     const exists = card.skills.find(e => e.skillId === skillId);
@@ -210,6 +233,92 @@ export function CardBuilder({ onSave, editCard, onClear }: {
             skills={skills}
           />
         )}
+
+        {/* Base Attacks — per-card, editable */}
+        <div className="bg-paper rounded-lg p-4 shadow-paper mb-4">
+          <div className="flex items-center justify-between border-b border-paper-dark pb-2 mb-3">
+            <div className="font-cinzel text-custom-brown text-xs tracking-widest uppercase">Base Attacks</div>
+            <button
+              className="border border-custom-brown/40 rounded-md text-[#2a1608] px-2 py-0.5 cursor-pointer font-serif text-xs hover:bg-paper-dark"
+              onClick={addAttack}
+            >
+              + Add Attack
+            </button>
+          </div>
+          {baseAttacks.length === 0 && (
+            <p className="text-black/60 italic text-xs">No base attacks yet.</p>
+          )}
+          {baseAttacks.map((a, i) => (
+            <div key={a.id} className="flex gap-2 items-center mb-2 flex-wrap">
+              <select
+                className="bg-paper-dark border border-custom-brown/20 rounded-md text-custom-brown px-2 py-1 font-serif text-xs outline-none"
+                value={a.attackType}
+                onChange={e => updateAttack(i, { attackType: e.target.value as AttackType })}
+              >
+                {(["Melee","Ranged","Phokus"] as AttackType[]).map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <input
+                className="bg-paper-dark border border-custom-brown/20 rounded-md text-custom-brown px-2 py-1 font-serif text-xs outline-none w-32"
+                value={a.weaponName}
+                onChange={e => updateAttack(i, { weaponName: e.target.value })}
+                placeholder="Weapon name"
+              />
+              <input
+                type="number"
+                className="bg-paper-dark border border-custom-brown/20 rounded-md text-custom-brown px-2 py-1 font-serif text-xs outline-none w-16"
+                value={a.damage}
+                onChange={e => updateAttack(i, { damage: Number(e.target.value) })}
+              />
+              <select
+                className="bg-paper-dark border border-custom-brown/20 rounded-md text-custom-brown px-2 py-1 font-serif text-xs outline-none"
+                value={a.damageTypeId}
+                onChange={e => updateAttack(i, { damageTypeId: e.target.value })}
+              >
+                {damageTypes.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+              <button
+                className="border border-custom-brown/20 rounded-md text-custom-brown px-2 py-0.5 cursor-pointer text-xs hover:bg-paper"
+                onClick={() => deleteAttack(i)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Layout toggle: 2 cols default, 3 cols when card is dense */}
+        <div className="bg-paper rounded-lg p-4 shadow-paper mb-4">
+          <div className="font-cinzel text-custom-brown text-xs tracking-widest uppercase border-b border-paper-dark pb-2 mb-3">Card Layout</div>
+          <div className="flex items-center gap-3">
+            <button
+              className={clsx(
+                "border rounded-md px-3 py-1.5 cursor-pointer text-xs font-cinzel tracking-wider",
+                !card.useThreeColumns
+                  ? "bg-button-gradient border-custom-gold/60 text-white"
+                  : "border-custom-brown/40 text-[#2a1608] bg-paper-dark hover:bg-paper"
+              )}
+              onClick={() => set({ useThreeColumns: false })}
+            >
+              2 Columns
+            </button>
+            <button
+              className={clsx(
+                "border rounded-md px-3 py-1.5 cursor-pointer text-xs font-cinzel tracking-wider",
+                card.useThreeColumns
+                  ? "bg-button-gradient border-custom-gold/60 text-white"
+                  : "border-custom-brown/40 text-[#2a1608] bg-paper-dark hover:bg-paper"
+              )}
+              onClick={() => set({ useThreeColumns: true })}
+            >
+              3 Columns
+            </button>
+            <span className="text-[11px] italic text-black/70">
+              Default is 2 columns. Toggle 3 when skills won't fit.
+            </span>
+          </div>
+        </div>
 
         {/* Description with rich-text formatting */}
         <div className="bg-paper rounded-lg p-4 shadow-paper mb-4">

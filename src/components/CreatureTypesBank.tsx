@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { CreatureType, DamageType, Skill, CreatureRef, BaseAttack, AttackType } from "../types";
+import type { CreatureType, CreatureRef } from "../types";
 import { v4 as uuidv4 } from "uuid";
 import { useAppStore } from "../store/appStore";
 import { applyFmt } from "../utils";
@@ -43,13 +43,13 @@ function CreatureRefEditor({ refEntry, onUpdate, onDelete }: {
 function CreatureTypeForm({ initial, onSave, onCancel }: {
   initial?: CreatureType; onSave: (ct: CreatureType) => void; onCancel: () => void;
 }) {
-  const { damageTypes, skills } = useAppStore();
+  const { damageTypes } = useAppStore();
   const blank: CreatureType = {
     id: uuidv4(), name: "",
     format: { color: "#856d4b", fontFamily: "'Cinzel', serif", bold: false, italic: false, underline: false },
     weaknesses: [], resistances: [], immunities: [], baseAttacks: [],
   };
-  const [ct, setCt] = useState<CreatureType>(initial ? { ...initial, weaknesses: [...initial.weaknesses], resistances: [...initial.resistances], immunities: [...initial.immunities], baseAttacks: [...initial.baseAttacks] } : blank);
+  const [ct, setCt] = useState<CreatureType>(initial ? { ...initial, weaknesses: [...initial.weaknesses], resistances: [...initial.resistances], immunities: [...initial.immunities], baseAttacks: [...(initial.baseAttacks ?? [])] } : blank);
   const set = (p: Partial<CreatureType>) => setCt(c => ({ ...c, ...p }));
 
   const addRef = (section: "weaknesses" | "resistances" | "immunities") => {
@@ -60,13 +60,6 @@ function CreatureTypeForm({ initial, onSave, onCancel }: {
     set({ [section]: ct[section].map((x, idx) => idx === i ? r : x) });
   const deleteRef = (section: "weaknesses" | "resistances" | "immunities", i: number) =>
     set({ [section]: ct[section].filter((_, idx) => idx !== i) });
-
-  const addAttack = () =>
-    set({ baseAttacks: [...ct.baseAttacks, { id: uuidv4(), weaponName: "", damage: 3, damageTypeId: damageTypes[0]?.id ?? "", attackType: "Melee" }] });
-  const updateAttack = (i: number, p: Partial<BaseAttack>) =>
-    set({ baseAttacks: ct.baseAttacks.map((a, idx) => idx === i ? { ...a, ...p } : a) });
-  const deleteAttack = (i: number) =>
-    set({ baseAttacks: ct.baseAttacks.filter((_, idx) => idx !== i) });
 
   const sectionBlock = (label: string, colorHex: string, key: "weaknesses" | "resistances" | "immunities") => (
     <div className="mb-3">
@@ -101,26 +94,6 @@ function CreatureTypeForm({ initial, onSave, onCancel }: {
           {sectionBlock("WEAKNESSES", "#c83737", "weaknesses")}
           {sectionBlock("RESISTANCES", "#377bc8", "resistances")}
           {sectionBlock("IMMUNITIES", "#37c88a", "immunities")}
-        </div>
-      </div>
-
-      <div className="mt-3">
-        <label className="font-cinzel text-custom-brown text-xs tracking-widest uppercase">Base Attacks</label>
-        <div className="mt-2">
-          {ct.baseAttacks.map((a, i) => (
-            <div key={a.id} className="flex gap-2 items-center mb-2 flex-wrap">
-              <select className="bg-paper border border-custom-brown/20 rounded-md text-custom-brown px-2 py-1 font-serif text-xs w-auto outline-none" value={a.attackType} onChange={e => updateAttack(i, { attackType: e.target.value as AttackType })}>
-                {(["Melee","Ranged","Phokus"] as AttackType[]).map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <input className="bg-paper border border-custom-brown/20 rounded-md text-custom-brown px-2 py-1 font-serif text-xs w-auto outline-none w-32" value={a.weaponName} onChange={e => updateAttack(i, { weaponName: e.target.value })} placeholder="Weapon name" />
-              <input type="number" className="bg-paper border border-custom-brown/20 rounded-md text-custom-brown px-2 py-1 font-serif text-xs w-auto outline-none w-16" value={a.damage} onChange={e => updateAttack(i, { damage: Number(e.target.value) })} />
-              <select className="bg-paper border border-custom-brown/20 rounded-md text-custom-brown px-2 py-1 font-serif text-xs w-auto outline-none" value={a.damageTypeId} onChange={e => updateAttack(i, { damageTypeId: e.target.value })}>
-                {damageTypes.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-              <button className="border border-custom-brown/20 rounded-md text-custom-brown px-2 py-0.5 cursor-pointer text-xs hover:bg-paper" onClick={() => deleteAttack(i)}>✕</button>
-            </div>
-          ))}
-          <button className="border border-custom-brown/20 rounded-md text-custom-brown px-2 py-0.5 cursor-pointer font-serif text-xs hover:bg-paper-dark" onClick={addAttack}>+ Add Attack</button>
         </div>
       </div>
 
@@ -163,7 +136,6 @@ export function CreatureTypesBank() {
                 <span>Weaknesses: {t.weaknesses.length}</span>
                 <span>Resistances: {t.resistances.length}</span>
                 <span>Immunities: {t.immunities.length}</span>
-                <span>Attacks: {t.baseAttacks.length}</span>
               </div>
             </div>
             <div className="flex gap-2">
