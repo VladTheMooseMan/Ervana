@@ -24,10 +24,8 @@ interface QueueEntry {
   cardId: string;
 }
 
-// Native card render sizes (pixels @ 96dpi). Match CardPreview.
-const CARD_NATIVE_W_PORTRAIT = 480;
-const CARD_NATIVE_W_WIDE     = 720;
-const CARD_NATIVE_H          = 600;
+// Native card render sizes are measured live via ResizeObserver in
+// PrintCardSlot — no fixed constants needed here.
 
 // Slot size per layout, in inches — used to auto-scale each card.
 // Letter printable ~ 7.7 × 10.2in (with 0.4in margin all sides).
@@ -44,59 +42,105 @@ const SLOT_IN: Record<PerPage, { w: number; h: number }> = {
 // Under box-sizing:border-box that eats 14px total from each dimension.
 const SLOT_CHROME_PX = 14;
 
-// Small safety margin so rounding never nudges a scaled card past the
-// slot edge (which the printer then clips).
-const SAFETY_PX = 4;
+// Extra safety margin (px) so rounding/print-DPI drift never nudges a
+// scaled card past its slot edge. Also acts as a global "shrink a hair"
+// factor so partial-pixel measurement errors don't clip content.
+const SAFETY_PX = 12;
+
+// Conservative fallback natural size, in px, used before ResizeObserver
+// has produced a real measurement. Chosen large so the initial scale is
+// small (nothing ever starts out too big).
+const FALLBACK_NATURAL = { w: 480, h: 900 };
 
 // -----------------------------------------------------------
 // PrintCardSlot
-//   Renders a CardPreview inside a fixed-size slot, measures the
-//   card's natural (unscaled) width & height, then applies a
-//   transform-scale so the card fits inside the slot's usable area.
-//   Because we measure the real DOM instead of assuming constants,
-//   we correctly handle cards whose height grows past 600px.
+//   1. Renders CardPreview off-screen at its natural size.
+//   2. Measures the real rendered w/h via ResizeObserver.
+//   3. Computes a fit-to-slot scale that guarantees BOTH width AND
+//      height fit inside (slot - chrome - safety).
+//   4. Sizes the wrapper to the SCALED visual dimensions so no CSS
+//      overflow:hidden is needed to hide extra layout box — the
+//      wrapper is literally as small as the scaled content.
 // -----------------------------------------------------------
 function PrintCardSlot({ card, slotW, slotH }: { card: NPCCard; slotW: number; slotH: number }) {
   const measureRef = useRef<HTMLDivElement | null>(null);
-  const [scale, setScale] = useState(1);
+  const [natural, setNatural] = useState(FALLBACK_NATURAL);
 
   useLayoutEffect(() => {
     const el = measureRef.current;
     if (!el) return;
     const compute = () => {
       const rect = el.getBoundingClientRect();
-      const usableW = slotW - SLOT_CHROME_PX - SAFETY_PX;
-      const usableH = slotH - SLOT_CHROME_PX - SAFETY_PX;
-      if (rect.width === 0 || rect.height === 0) return;
-      const next = Math.min(usableW / rect.width, usableH / rect.height, 1);
-      setScale(next > 0 ? next : 1);
+      if (rect.width > 0 && rect.height > 0) {
+        setNatural({ w: rect.width, h: rect.height });
+      }
     };
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [slotW, slotH, card]);
+    // Recompute after fonts/images finish loading (may push height taller).
+    const t = window.setTimeout(compute, 300);
+    return () => { ro.disconnect(); window.clearTimeout(t); };
+  }, [card]);
+
+  const usableW = Math.max(1, slotW - SLOT_CHROME_PX - SAFETY_PX);
+  const usableH = Math.max(1, slotH - SLOT_CHROME_PX - SAFETY_PX);
+  const scale = Math.min(usableW / natural.w, usableH / natural.h, 1);
+  // Visual (post-scale) card size — the wrapper is exactly this size,
+  // so it cannot be clipped by any outer box.
+  const visualW = natural.w * scale;
+  const visualH = natural.h * scale;
 
   return (
-    <div
-      className="print-card"
-      style={{
-        width: `${slotW}px`,
-        height: `${slotH}px`,
-      }}
-    >
+    <>
+      {/* Off-screen twin used solely for measurement. Kept mounted so
+          ResizeObserver keeps firing as images/fonts settle. */}
       <div
-        className="print-card-content"
+        aria-hidden
         style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
+          position: "absolute",
+          left: "-100000px",
+          top: 0,
+          visibility: "hidden",
+          pointerEvents: "none",
+          display: "inline-block",
         }}
       >
         <div ref={measureRef} style={{ display: "inline-block" }}>
           <CardPreview card={card} />
         </div>
       </div>
-    </div>
+
+      {/* Real slot rendered in the print flow. Slot width = full slot
+          for grid alignment; inner content is the exact scaled size. */}
+      <div
+        className="print-card"
+        style={{
+          width: `${slotW}px`,
+          height: `${slotH}px`,
+        }}
+      >
+        <div
+          className="print-card-content"
+          style={{
+            width: `${visualW}px`,
+            height: `${visualH}px`,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: `${natural.w}px`,
+              height: `${natural.h}px`,
+              transform: `scale(${scale})`,
+              transformOrigin: "top left",
+            }}
+          >
+            <CardPreview card={card} />
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
