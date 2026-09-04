@@ -28,10 +28,14 @@ import {
   analyzeTyping,
   suggest,
   applySuggestion,
+  loadModel,
+  mergeModel,
   type Suggestion,
   type AutocompleteModel,
   type TypingContext,
+  type SerializedModel,
 } from "../skillAutocomplete";
+import rulebookModelJSON from "../data/rulebookModel.json";
 
 export function emptySkill(): Skill {
   return {
@@ -76,13 +80,20 @@ export function SkillForm({ initial, onSave, onCancel }: {
   // ── Autocomplete state ──
   // Model retrains automatically whenever the store's skill list
   // changes, so any skill added later is immediately part of the
-  // corpus without a page reload.
+  // corpus without a page reload. The pre-baked rulebook model is
+  // merged in with a lower weight so canonical game vocabulary is
+  // available but user-authored skills still rank higher.
   const rulesRef = useRef<HTMLTextAreaElement | null>(null);
   const mirrorRef = useRef<HTMLDivElement | null>(null);
+  const rulebookModel: AutocompleteModel = useMemo(
+    () => loadModel(rulebookModelJSON as SerializedModel),
+    [],
+  );
   const model: AutocompleteModel = useMemo(() => {
     const others = skills.filter(s => s.id !== skill.id);
-    return trainModel(others);
-  }, [skills, skill.id]);
+    const trained = trainModel(others);
+    return mergeModel(trained, rulebookModel, 0.35);
+  }, [skills, skill.id, rulebookModel]);
   const skillNames = useMemo(
     () => skills.filter(s => s.id !== skill.id).map(s => s.name),
     [skills, skill.id],

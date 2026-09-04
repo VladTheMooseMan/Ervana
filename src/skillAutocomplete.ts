@@ -61,6 +61,57 @@ function tokenizeWords(text: string): string[] {
 // ────────────────────────────────────────────────────────────────
 // Training
 // ────────────────────────────────────────────────────────────────
+
+/** Serializable snapshot format used by the pre-baked rulebook model. */
+export interface SerializedModel {
+  unigrams: Record<string, number>;
+  bigrams: Record<string, Record<string, number>>;
+  phrases: Record<string, number>;
+}
+
+/** Load a SerializedModel (from JSON) into runtime Map form. */
+export function loadModel(s: SerializedModel): AutocompleteModel {
+  const unigrams = new Map<string, number>();
+  for (const [k, v] of Object.entries(s.unigrams)) unigrams.set(k, v);
+
+  const bigrams = new Map<string, Map<string, number>>();
+  for (const [prev, tbl] of Object.entries(s.bigrams)) {
+    const m = new Map<string, number>();
+    for (const [next, count] of Object.entries(tbl)) m.set(next, count);
+    bigrams.set(prev, m);
+  }
+
+  const phrases = new Map<string, number>();
+  for (const [k, v] of Object.entries(s.phrases)) phrases.set(k, v);
+
+  return { unigrams, bigrams, phrases };
+}
+
+/** Merge `extra` into `base` in place (returns base). Weights everything
+ * from `extra` by `weight` so a large external corpus doesn't drown out
+ * the user's own writing.
+ */
+export function mergeModel(
+  base: AutocompleteModel,
+  extra: AutocompleteModel,
+  weight = 0.35,
+): AutocompleteModel {
+  for (const [k, v] of extra.unigrams) {
+    base.unigrams.set(k, (base.unigrams.get(k) ?? 0) + v * weight);
+  }
+  for (const [prev, tbl] of extra.bigrams) {
+    let target = base.bigrams.get(prev);
+    if (!target) { target = new Map(); base.bigrams.set(prev, target); }
+    for (const [nxt, c] of tbl) {
+      target.set(nxt, (target.get(nxt) ?? 0) + c * weight);
+    }
+  }
+  for (const [p, c] of extra.phrases) {
+    base.phrases.set(p, (base.phrases.get(p) ?? 0) + c * weight);
+  }
+  return base;
+}
+
 export function trainModel(skills: Skill[]): AutocompleteModel {
   const unigrams = new Map<string, number>();
   const bigrams = new Map<string, Map<string, number>>();
