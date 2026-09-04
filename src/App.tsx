@@ -12,9 +12,10 @@ import { SkillsBank } from "./components/SkillsBank";
 import { DamageTypesBank } from "./components/DamageTypesBank";
 import { CreatureTypesBank } from "./components/CreatureTypesBank";
 import { PrintQueue } from "./components/PrintQueue";
+import { DocsExport } from "./components/DocsExport";
 import { Login } from "./components/Login";
 
-type Tab = "builder" | "library" | "web" | "skills" | "damage" | "creatures" | "print";
+type Tab = "builder" | "library" | "web" | "skills" | "damage" | "creatures" | "print" | "docs";
 const TAB_LABELS: { id: Tab; label: string }[] = [
   { id: "builder",   label: "Card Builder" },
   { id: "library",   label: "Library" },
@@ -23,6 +24,7 @@ const TAB_LABELS: { id: Tab; label: string }[] = [
   { id: "damage",    label: "Damage Types" },
   { id: "creatures", label: "Creature Types" },
   { id: "print",     label: "Print" },
+  { id: "docs",      label: "Copy for Docs" },
 ];
 
 export default function App() {
@@ -122,6 +124,7 @@ export default function App() {
         {tab === "damage" && <DamageTypesBank />}
         {tab === "creatures" && <CreatureTypesBank />}
         {tab === "print" && <PrintQueue />}
+        {tab === "docs" && <DocsExport />}
       </motion.main>
     </div>
   );
