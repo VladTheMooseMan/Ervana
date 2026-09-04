@@ -208,39 +208,46 @@ function buildCardHTML(
   const resistances: CreatureRef[] = types.flatMap(t => t.resistances ?? []);
   const immunities:  CreatureRef[] = types.flatMap(t => t.immunities ?? []);
 
-  // ── HEADER (name + type tags only) ─────────────────────
+  // ── HEADER (name + type tags in ONE paragraph) ─────────
+  // Docs adds paragraph leading after every <div>; putting the type
+  // badges on a second <div> creates an obvious blank line between
+  // the card name and the badges. Keep them in one paragraph via
+  // <br/> or side-by-side inline spans.
   const typeTags = types
     .map(t => `<span style="${STY.typeTag};${fmtToInlineStyle(t.format)}">[${esc(t.name)}]</span>`)
     .join(" ");
 
   const headerHTML =
-    `<div style="${STY.cardName}">${esc(card.name || "Unnamed NPC")}</div>` +
-    (typeTags ? `<div style="margin:2px 0 0 0;padding:0;line-height:1.1;">${typeTags}</div>` : "") +
+    `<div style="${STY.cardName}">` +
+    `${esc(card.name || "Unnamed NPC")}` +
+    (typeTags ? `<br/><span style="font-size:9pt;font-weight:normal;line-height:1;">${typeTags}</span>` : "") +
+    `</div>` +
     `<div style="${STY.hairStrong}">&nbsp;</div>`;
 
   // ── LEFT COLUMN — stats, traits, attacks, W/R/I, desc ──
   const leftParts: string[] = [];
 
-  // Stats + Base Damage line
+  // Stats + Traits in ONE paragraph so Docs can't insert leading
+  // between them. Real spaces separate the tokens.
   const statsBits: string[] = [`Body : ${card.body}`];
   if (card.armor !== 0) statsBits.push(`Armor : ${card.armor}`);
   if (card.baseDamage) statsBits.push(`Base Damage : ${esc(String(card.baseDamage))}`);
-  leftParts.push(
-    `<div style="${STY.statsBlock}">${statsBits.join(" &nbsp;·&nbsp; ")}</div>`
-  );
+  const statsInline = statsBits.join(" &nbsp;·&nbsp; ");
 
-  // Traits row (STR/DEX/…) — larger, spaced with real gap chars so
-  // Google Docs keeps horizontal spacing after paste (it drops
-  // margin/padding on inline spans).
+  let traitsInline = "";
   if (activeTraits.length > 0) {
     const gap = "&nbsp;&nbsp;&nbsp;";
-    const traitLine = activeTraits
+    traitsInline = activeTraits
       .map(k => `<span style="${STY.traitPill}">${k}:${traits[k]}</span>`)
       .join(gap);
-    leftParts.push(
-      `<div style="margin:3px 0 0 0;padding:0;line-height:1.15;">${traitLine}</div>`
-    );
   }
+
+  leftParts.push(
+    `<div style="${STY.statsBlock}">` +
+    statsInline +
+    (traitsInline ? `<br/><span style="line-height:1.15;">${traitsInline}</span>` : "") +
+    `</div>`
+  );
 
   if (baseAttacks.length > 0) {
     leftParts.push(`<div style="${STY.hairSoft}">&nbsp;</div>`);
@@ -304,15 +311,16 @@ function buildCardHTML(
         : `<span style="${STY.skillFreq}">&nbsp;&nbsp;${esc(freqLabel(entry.frequency))}</span>`;
     const otherSkills = referenceableSkills.filter(s => s.id !== skill.id);
     const rulesHTML = renderRichHTML(skill.rulesText, damageTypes, otherSkills);
-    // Name + rules must live in a SINGLE <div>. If they are two
-    // adjacent <div>s Google Docs treats them as separate paragraphs
-    // and inserts a full blank line between them. Using <br/> keeps
-    // them in one paragraph with just a line break.
+    // Put name+freq+rules all in one <div> as inline spans, with just
+    // a single non-breaking space between the header and the rules
+    // text. This prevents Google Docs from inserting a paragraph gap
+    // between skill name and rules — Docs adds ~1 line of leading
+    // after every <div>/<br>.
     return (
       `<div style="${STY.skillBlock}">` +
       `<span style="${nameStyle}">${esc(skill.name)}</span>` +
       freqHTML +
-      `<br/>` +
+      `&nbsp; ` +
       `<span style="${rulesStyle}">${rulesHTML}</span>` +
       `</div>`
     );
