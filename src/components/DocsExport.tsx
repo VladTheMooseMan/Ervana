@@ -173,12 +173,11 @@ const STY = {
   descText:  "font-size:10pt;line-height:1.3;color:#000;margin:0;padding:0;",
 
   // Skills
-  skillBlock:  "margin:0 0 6pt 0;padding:0;",
-  skillHeader: "margin:0;padding:0;line-height:1.15;",
-  skillName:   "font-size:11pt;font-weight:600;color:#000;letter-spacing:0.02em;",
-  skillFreq:   "font-family:'Cinzel',Georgia,serif;font-size:9pt;color:rgba(0,0,0,0.7);",
-  skillPassive:"font-style:italic;color:#166534;font-size:9pt;",
-  skillRules:  "font-size:9.5pt;line-height:1.25;color:#000;margin:2px 0 0 0;padding:0;",
+  skillBlock:  "margin:0 0 6pt 0;padding:0;line-height:1.05;font-size:9.5pt;",
+  skillName:   "font-size:11pt;font-weight:600;color:#000;letter-spacing:0.02em;line-height:1;",
+  skillFreq:   "font-family:'Cinzel',Georgia,serif;font-size:9pt;color:rgba(0,0,0,0.7);line-height:1;",
+  skillPassive:"font-style:italic;color:#166534;font-size:9pt;line-height:1;",
+  skillRules:  "font-size:9.5pt;line-height:1.2;color:#000;margin:0;padding:0;",
 };
 
 // ------------------------------------------------------------
