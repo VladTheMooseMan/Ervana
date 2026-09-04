@@ -272,7 +272,29 @@ button:focus-visible {
    The React sheet supplies each .print-card its slot size and
    per-card CSS transform to fit the slot. The CSS just lays out
    the sheet as a wrapping grid of slots with dashed cut lines.
+
+   On screen the print-sheet must still render (so its cards can
+   be measured for auto-scale) — we push it far off-screen with
+   .print-sheet-offscreen. @media print pulls it back on-page.
    ============================================================ */
+
+/* Off-screen scaffold used on-screen so DOM measurement works. */
+.print-sheet-offscreen {
+  position: absolute !important;
+  left: -100000px !important;
+  top: 0 !important;
+  width: 8.5in;
+  pointer-events: none;
+  visibility: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
+  justify-content: flex-start;
+  gap: 0.05in;
+  background: white;
+}
+
 @media print {
   @page { size: Letter; margin: 0.4in; }
 
@@ -288,8 +310,8 @@ button:focus-visible {
   body * { visibility: hidden !important; }
   .print-sheet, .print-sheet * { visibility: visible !important; }
 
-  /* Print sheet: flexbox so cards float and wrap naturally */
-  .print-sheet {
+  /* Bring the off-screen sheet back on-page and lay out cards */
+  .print-sheet, .print-sheet-offscreen {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -302,6 +324,7 @@ button:focus-visible {
     gap: 0.05in;
     background: white !important;
     padding: 0 !important;
+    pointer-events: auto !important;
   }
 
   /* Each slot: fixed w/h from React (per layout). Dashed cut lines

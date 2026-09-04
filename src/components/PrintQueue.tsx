@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useLayoutEffect } from "react";
 import type { NPCCard } from "../types";
 import { useAppStore } from "../store/appStore";
 import { CardPreview } from "./CardPreview";
@@ -44,14 +44,60 @@ const SLOT_IN: Record<PerPage, { w: number; h: number }> = {
 // Under box-sizing:border-box that eats 14px total from each dimension.
 const SLOT_CHROME_PX = 14;
 
-// Compute the fit-to-slot scale for a given card in a given layout.
-function scaleForCard(card: NPCCard, per: PerPage): number {
-  const nativeW = card.useThreeColumns ? CARD_NATIVE_W_WIDE : CARD_NATIVE_W_PORTRAIT;
-  const nativeH = CARD_NATIVE_H;
-  const slot = SLOT_IN[per];
-  const slotW = slot.w * 96 - SLOT_CHROME_PX;
-  const slotH = slot.h * 96 - SLOT_CHROME_PX;
-  return Math.min(slotW / nativeW, slotH / nativeH);
+// Small safety margin so rounding never nudges a scaled card past the
+// slot edge (which the printer then clips).
+const SAFETY_PX = 4;
+
+// -----------------------------------------------------------
+// PrintCardSlot
+//   Renders a CardPreview inside a fixed-size slot, measures the
+//   card's natural (unscaled) width & height, then applies a
+//   transform-scale so the card fits inside the slot's usable area.
+//   Because we measure the real DOM instead of assuming constants,
+//   we correctly handle cards whose height grows past 600px.
+// -----------------------------------------------------------
+function PrintCardSlot({ card, slotW, slotH }: { card: NPCCard; slotW: number; slotH: number }) {
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+
+  useLayoutEffect(() => {
+    const el = measureRef.current;
+    if (!el) return;
+    const compute = () => {
+      const rect = el.getBoundingClientRect();
+      const usableW = slotW - SLOT_CHROME_PX - SAFETY_PX;
+      const usableH = slotH - SLOT_CHROME_PX - SAFETY_PX;
+      if (rect.width === 0 || rect.height === 0) return;
+      const next = Math.min(usableW / rect.width, usableH / rect.height, 1);
+      setScale(next > 0 ? next : 1);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [slotW, slotH, card]);
+
+  return (
+    <div
+      className="print-card"
+      style={{
+        width: `${slotW}px`,
+        height: `${slotH}px`,
+      }}
+    >
+      <div
+        className="print-card-content"
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+        }}
+      >
+        <div ref={measureRef} style={{ display: "inline-block" }}>
+          <CardPreview card={card} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function PrintQueue() {
@@ -262,39 +308,24 @@ export function PrintQueue() {
       </div>
 
       {/* ==================================================
-          PRINT SHEET — hidden on screen, revealed by @media print.
-          Each card is auto-scaled per its own layout (portrait or
-          3-col wide) so the whole card fits its slot. Slots come
-          from a 1 / 2 / 2×2 / 2×3 grid.
+          PRINT SHEET — kept in the DOM off-screen so cards can
+          be measured for auto-scale. @media print reveals it.
+          Each card is auto-scaled from its measured natural size
+          so the whole card fits its slot.
           ================================================== */}
       <div
         ref={sheetRef}
-        className={`print-sheet print-sheet--${pageSize} print-sheet--per-${cardsPerPage} hidden print:block`}
+        className={`print-sheet print-sheet--${pageSize} print-sheet--per-${cardsPerPage} print-sheet-offscreen`}
       >
         {queueCards.map(({ entry, card }) => {
-          const scale = scaleForCard(card, cardsPerPage);
-          const nativeW = card.useThreeColumns ? CARD_NATIVE_W_WIDE : CARD_NATIVE_W_PORTRAIT;
           const slot = SLOT_IN[cardsPerPage];
           return (
-            <div
+            <PrintCardSlot
               key={entry.uid}
-              className="print-card"
-              style={{
-                width: `${slot.w}in`,
-                height: `${slot.h}in`,
-              }}
-            >
-              <div
-                className="print-card-content"
-                style={{
-                  width: `${nativeW}px`,
-                  transform: `scale(${scale})`,
-                  transformOrigin: "top left",
-                }}
-              >
-                <CardPreview card={card} />
-              </div>
-            </div>
+              card={card}
+              slotW={slot.w * 96}
+              slotH={slot.h * 96}
+            />
           );
         })}
       </div>
