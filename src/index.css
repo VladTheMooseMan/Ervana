@@ -349,6 +349,14 @@ button:focus-visible {
     box-shadow: none !important;
     margin: 0 !important;
   }
+
+  /* Hard page break after the last card of each page — guarantees
+     the selected N-per-page grid actually fills a full sheet before
+     spilling onto the next. */
+  .print-page-break-after {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
 }
 
 

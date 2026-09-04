@@ -29,12 +29,13 @@ interface QueueEntry {
 
 // Slot size per layout, in inches — used to auto-scale each card.
 // Letter printable ~ 7.7 × 10.2in (with 0.4in margin all sides).
-// Widths leave headroom for the 0.05in inter-slot gap and dashed border.
+// Heights leave headroom for inter-row gaps so grids never overflow
+// a page (which would push rows to the next sheet).
 const SLOT_IN: Record<PerPage, { w: number; h: number }> = {
   1: { w: 7.4, h: 10.0 },
   2: { w: 7.4, h:  4.9 },   // 2 rows × 1 col
   4: { w: 3.65, h: 4.9 },   // 2 rows × 2 cols
-  6: { w: 3.65, h: 3.3 },   // 3 rows × 2 cols
+  6: { w: 3.65, h: 3.2 },   // 3 rows × 2 cols — 3*3.2 + 2*gap ≈ 9.7in
 };
 
 // Slot chrome, in px, taken by border + inner padding on each side.
@@ -62,7 +63,7 @@ const FALLBACK_NATURAL = { w: 480, h: 900 };
 //      overflow:hidden is needed to hide extra layout box — the
 //      wrapper is literally as small as the scaled content.
 // -----------------------------------------------------------
-function PrintCardSlot({ card, slotW, slotH }: { card: NPCCard; slotW: number; slotH: number }) {
+function PrintCardSlot({ card, slotW, slotH, breakAfter }: { card: NPCCard; slotW: number; slotH: number; breakAfter?: boolean }) {
   const measureRef = useRef<HTMLDivElement | null>(null);
   const [natural, setNatural] = useState(FALLBACK_NATURAL);
 
@@ -114,7 +115,7 @@ function PrintCardSlot({ card, slotW, slotH }: { card: NPCCard; slotW: number; s
       {/* Real slot rendered in the print flow. Slot width = full slot
           for grid alignment; inner content is the exact scaled size. */}
       <div
-        className="print-card"
+        className={"print-card" + (breakAfter ? " print-page-break-after" : "")}
         style={{
           width: `${slotW}px`,
           height: `${slotH}px`,
@@ -361,14 +362,19 @@ export function PrintQueue() {
         ref={sheetRef}
         className={`print-sheet print-sheet--${pageSize} print-sheet--per-${cardsPerPage} print-sheet-offscreen`}
       >
-        {queueCards.map(({ entry, card }) => {
+        {queueCards.map(({ entry, card }, i) => {
           const slot = SLOT_IN[cardsPerPage];
+          // Force a hard page break after each full page so the
+          // browser can't spill rows onto the next sheet.
+          const isLastOnPage = (i + 1) % cardsPerPage === 0;
+          const isFinalCard = i === queueCards.length - 1;
           return (
             <PrintCardSlot
               key={entry.uid}
               card={card}
               slotW={slot.w * 96}
               slotH={slot.h * 96}
+              breakAfter={isLastOnPage && !isFinalCard}
             />
           );
         })}
