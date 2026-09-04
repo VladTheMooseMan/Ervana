@@ -142,7 +142,7 @@ const STY = {
     "font-family:'Cinzel',Georgia,serif;font-size:10pt;line-height:1.15;" +
     "margin:0;padding:0;color:#000;",
   traitPill:
-    "font-size:8pt;font-weight:bold;text-transform:uppercase;",
+    "font-size:11pt;font-weight:bold;text-transform:uppercase;",
   // Hairline dividers (as background lines on divs with 0 margin)
   hairStrong: "border-top:1px solid rgba(0,0,0,0.55);margin:4px 0 6px 0;line-height:0;font-size:0;",
   hairSoft:   "border-top:1px solid rgba(0,0,0,0.25);margin:4px 0;line-height:0;font-size:0;",
@@ -229,13 +229,16 @@ function buildCardHTML(
     `<div style="${STY.statsBlock}">${statsBits.join(" &nbsp;·&nbsp; ")}</div>`
   );
 
-  // Traits row (STR/DEX/…)
+  // Traits row (STR/DEX/…) — larger, spaced with real gap chars so
+  // Google Docs keeps horizontal spacing after paste (it drops
+  // margin/padding on inline spans).
   if (activeTraits.length > 0) {
+    const gap = "&nbsp;&nbsp;&nbsp;";
     const traitLine = activeTraits
-      .map(k => `<span style="${STY.traitPill};margin-right:6px;">${k}:${traits[k]}</span>`)
-      .join("");
+      .map(k => `<span style="${STY.traitPill}">${k}:${traits[k]}</span>`)
+      .join(gap);
     leftParts.push(
-      `<div style="margin:2px 0 0 0;padding:0;line-height:1.1;">${traitLine}</div>`
+      `<div style="margin:3px 0 0 0;padding:0;line-height:1.15;">${traitLine}</div>`
     );
   }
 
@@ -301,13 +304,16 @@ function buildCardHTML(
         : `<span style="${STY.skillFreq}">${esc(freqLabel(entry.frequency))}</span>`;
     const otherSkills = referenceableSkills.filter(s => s.id !== skill.id);
     const rulesHTML = renderRichHTML(skill.rulesText, damageTypes, otherSkills);
+    // Name + rules must live in a SINGLE <div>. If they are two
+    // adjacent <div>s Google Docs treats them as separate paragraphs
+    // and inserts a full blank line between them. Using <br/> keeps
+    // them in one paragraph with just a line break.
     return (
       `<div style="${STY.skillBlock}">` +
-      `<div style="${STY.skillHeader}">` +
       `<span style="${nameStyle}">${esc(skill.name)}</span>` +
       freqHTML +
-      `</div>` +
-      `<div style="${rulesStyle}">${rulesHTML}</div>` +
+      `<br/>` +
+      `<span style="${rulesStyle}">${rulesHTML}</span>` +
       `</div>`
     );
   };
