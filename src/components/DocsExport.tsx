@@ -123,23 +123,24 @@ const STY = {
   frame:
     "border:2px solid #1a1208;border-radius:10px;background:#ffffff;padding:16px;" +
     "font-family:Georgia,serif;color:#000;margin-bottom:16pt;",
-  // Header row layout table
-  headerTable: "width:100%;border-collapse:collapse;",
-  headerLeft:  "vertical-align:top;padding:0;",
-  headerRight: "vertical-align:top;padding:0;text-align:right;white-space:nowrap;",
+  // Header
   cardName:
     "font-family:'Cinzel',Georgia,serif;font-size:22pt;font-weight:bold;line-height:1.1;margin:0;color:#000;",
   typeTag: "font-size:9pt;margin-right:4px;",
   statsBlock:
     "font-family:'Cinzel',Georgia,serif;font-size:10pt;line-height:1.25;color:#000;",
   traitPill:
-    "display:inline-block;margin-left:6px;font-size:8pt;font-weight:bold;text-transform:uppercase;",
+    "display:inline-block;font-size:8pt;font-weight:bold;text-transform:uppercase;",
   divider: "border:0;border-top:1px solid rgba(0,0,0,0.4);margin:6px 0 10px;",
 
   // Body 2-col table
   bodyTable: "width:100%;border-collapse:collapse;table-layout:fixed;",
   colLeft:   "vertical-align:top;padding:0 10px 0 0;width:50%;",
   colRight:  "vertical-align:top;padding:0 0 0 12px;width:50%;border-left:1px solid rgba(0,0,0,0.3);",
+  // 3-column body: lore ~40%, each skill column ~30%
+  colLeftThree:  "vertical-align:top;padding:0 10px 0 0;width:40%;",
+  colSkillMid:   "vertical-align:top;padding:0 10px;width:30%;border-left:1px solid rgba(0,0,0,0.3);",
+  colSkillRight: "vertical-align:top;padding:0 0 0 10px;width:30%;border-left:1px solid rgba(0,0,0,0.3);",
 
   // Section headings (small caps, uppercase)
   sectionHead:
@@ -192,30 +193,38 @@ function buildCardHTML(
   const resistances: CreatureRef[] = types.flatMap(t => t.resistances ?? []);
   const immunities:  CreatureRef[] = types.flatMap(t => t.immunities ?? []);
 
-  // ── HEADER ─────────────────────────────────────────────
+  // ── HEADER (name + type tags only) ─────────────────────
   const typeTags = types
     .map(t => `<span style="${STY.typeTag};${fmtToInlineStyle(t.format)}">[${esc(t.name)}]</span>`)
     .join(" ");
 
-  const traitLine = activeTraits
-    .map(k => `<span style="${STY.traitPill}">${k}:${traits[k]}</span>`)
-    .join(" ");
-
   const headerHTML =
-    `<table style="${STY.headerTable}"><tbody><tr>` +
-    `<td style="${STY.headerLeft}">` +
     `<div style="${STY.cardName}">${esc(card.name || "Unnamed NPC")}</div>` +
     (typeTags ? `<div style="margin-top:2px;">${typeTags}</div>` : "") +
-    `</td>` +
-    `<td style="${STY.headerRight}">` +
-    `<div style="${STY.statsBlock}">Body : ${card.body}</div>` +
-    (card.armor !== 0 ? `<div style="${STY.statsBlock}">Armor : ${card.armor}</div>` : "") +
-    (traitLine ? `<div style="margin-top:2px;">${traitLine}</div>` : "") +
-    `</td></tr></tbody></table>` +
     `<hr style="${STY.divider}"/>`;
 
-  // ── LEFT COLUMN ────────────────────────────────────────
+  // ── LEFT COLUMN — stats, traits, attacks, W/R/I, desc ──
   const leftParts: string[] = [];
+
+  // Stats + Base Damage line
+  const statsBits: string[] = [`Body : ${card.body}`];
+  if (card.armor !== 0) statsBits.push(`Armor : ${card.armor}`);
+  if (card.baseDamage) statsBits.push(`Base Damage : ${esc(String(card.baseDamage))}`);
+  leftParts.push(
+    `<div style="${STY.statsBlock};margin-bottom:4px;">${statsBits.join(" &nbsp;·&nbsp; ")}</div>`
+  );
+
+  // Traits row (STR/DEX/…)
+  if (activeTraits.length > 0) {
+    const traitLine = activeTraits
+      .map(k => `<span style="${STY.traitPill};margin-left:0;margin-right:8px;">${k}:${traits[k]}</span>`)
+      .join("");
+    leftParts.push(
+      `<div style="margin-bottom:4px;">${traitLine}</div>`
+    );
+  }
+
+  leftParts.push(`<hr style="${STY.softDivider}"/>`);
 
   if (baseAttacks.length > 0) {
     const rows = baseAttacks
@@ -263,35 +272,69 @@ function buildCardHTML(
 
   const leftHTML = leftParts.join("") || "&nbsp;";
 
-  // ── RIGHT COLUMN (skills) ──────────────────────────────
-  const skillsHTML = cardSkills.length === 0
-    ? `<p style="${STY.descText};opacity:0.5;font-style:italic;">No skills added.</p>`
-    : cardSkills
-        .map(({ entry, skill }) => {
-          const nameStyle = STY.skillName + ";" + fmtToInlineStyle(skill.nameFormat);
-          const rulesStyle = STY.skillRules + ";" + fmtToInlineStyle(skill.rulesFormat);
-          const freqHTML =
-            skill.category === "PASSIVE"
-              ? `<span style="${STY.skillPassive}">Passive</span>`
-              : `<span style="${STY.skillFreq}">${esc(freqLabel(entry.frequency))}</span>`;
-          const otherSkills = referenceableSkills.filter(s => s.id !== skill.id);
-          const rulesHTML = renderRichHTML(skill.rulesText, damageTypes, otherSkills);
-          return (
-            `<div style="${STY.skillBlock}">` +
-            `<div style="${STY.skillHeader}">` +
-            `<span style="${nameStyle}">${esc(skill.name)}</span>` +
-            freqHTML +
-            `</div>` +
-            `<p style="${rulesStyle}">${rulesHTML}</p>` +
-            `</div>`
-          );
-        })
-        .join("");
+  // ── RIGHT COLUMN(S) — skills ──────────────────────────
+  // If the card is set to 3-column layout, split skills into
+  // two roughly-even columns; otherwise one column.
+  const useThree = !!card.useThreeColumns;
+
+  const renderSkillBlock = ({ entry, skill }: { entry: CardSkillEntry; skill: Skill }) => {
+    const nameStyle = STY.skillName + ";" + fmtToInlineStyle(skill.nameFormat);
+    const rulesStyle = STY.skillRules + ";" + fmtToInlineStyle(skill.rulesFormat);
+    const freqHTML =
+      skill.category === "PASSIVE"
+        ? `<span style="${STY.skillPassive}">Passive</span>`
+        : `<span style="${STY.skillFreq}">${esc(freqLabel(entry.frequency))}</span>`;
+    const otherSkills = referenceableSkills.filter(s => s.id !== skill.id);
+    const rulesHTML = renderRichHTML(skill.rulesText, damageTypes, otherSkills);
+    return (
+      `<div style="${STY.skillBlock}">` +
+      `<div style="${STY.skillHeader}">` +
+      `<span style="${nameStyle}">${esc(skill.name)}</span>` +
+      freqHTML +
+      `</div>` +
+      `<p style="${rulesStyle}">${rulesHTML}</p>` +
+      `</div>`
+    );
+  };
+
+  // Split skills into two roughly-balanced columns by rules length.
+  const splitSkills = () => {
+    const total = cardSkills.reduce((a, cs) => a + cs.skill.rulesText.length + 40, 0);
+    const target = total / 2;
+    let running = 0;
+    const left: typeof cardSkills = [];
+    const right: typeof cardSkills = [];
+    for (const cs of cardSkills) {
+      if (running < target) { left.push(cs); running += cs.skill.rulesText.length + 40; }
+      else right.push(cs);
+    }
+    if (right.length === 0 && left.length > 1) right.unshift(left.pop()!);
+    return [left, right];
+  };
+
+  const skillCols = useThree ? splitSkills() : [cardSkills];
+
+  const skillsColHTML = (col: typeof cardSkills) =>
+    col.length === 0
+      ? `<p style="${STY.descText};opacity:0.5;font-style:italic;">No skills.</p>`
+      : col.map(renderSkillBlock).join("");
+
+  // ── BODY table: left(stats/desc) + N skill columns ────
+  // Widths: with 2 skill cols, give lore ~40%, skills ~30% each;
+  // with 1 skill col, split 50/50.
+  const bodyCells: string[] = [
+    `<td style="${useThree ? STY.colLeftThree : STY.colLeft}">${leftHTML}</td>`,
+  ];
+  skillCols.forEach((col, i) => {
+    const style = useThree
+      ? (i === 0 ? STY.colSkillMid : STY.colSkillRight)
+      : STY.colRight;
+    bodyCells.push(`<td style="${style}">${skillsColHTML(col)}</td>`);
+  });
 
   const bodyHTML =
     `<table style="${STY.bodyTable}"><tbody><tr>` +
-    `<td style="${STY.colLeft}">${leftHTML}</td>` +
-    `<td style="${STY.colRight}">${skillsHTML}</td>` +
+    bodyCells.join("") +
     `</tr></tbody></table>`;
 
   return `<div style="${STY.frame}">${headerHTML}${bodyHTML}</div>`;
@@ -329,7 +372,6 @@ function buildCardText(
       lines.push("    " + skill.rulesText.replace(/\n/g, "\n    "));
     }
   }
-  if (card.notes) lines.push("", "Notes: " + card.notes);
   return lines.join("\n") + "\n\n";
 }
 
