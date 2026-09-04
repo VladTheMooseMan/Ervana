@@ -117,53 +117,68 @@ function renderRefsHTML(
 
 // ------------------------------------------------------------
 // Style constants — inline CSS strings applied throughout.
+// Google Docs paste rules that shaped these values:
+//   * Borders on plain <div> get dropped. Only <table>/<td>
+//     borders survive, so the outer frame is a 1-cell table.
+//   * <p> and <hr> get Google Docs' default paragraph spacing
+//     which balloons whitespace, so we use <div> blocks with
+//     explicit margin:0 and border-top for hairlines.
+//   * margin/padding on <td> is honored; line-height compresses
+//     the internal text runs.
 // ------------------------------------------------------------
 const STY = {
-  // Outer "card frame"
-  frame:
-    "border:2px solid #1a1208;border-radius:10px;background:#ffffff;padding:16px;" +
-    "font-family:Georgia,serif;color:#000;margin-bottom:16pt;",
+  // Outer frame: table cell with a real border Google Docs keeps.
+  frameTable:
+    "border-collapse:collapse;width:auto;margin:0 0 12pt 0;font-family:Georgia,serif;",
+  frameCell:
+    "border:2px solid #1a1208;background:#ffffff;padding:10px 12px;" +
+    "font-family:Georgia,serif;color:#000;vertical-align:top;",
   // Header
   cardName:
-    "font-family:'Cinzel',Georgia,serif;font-size:22pt;font-weight:bold;line-height:1.1;margin:0;color:#000;",
+    "font-family:'Cinzel',Georgia,serif;font-size:20pt;font-weight:bold;" +
+    "line-height:1;margin:0;padding:0;color:#000;",
   typeTag: "font-size:9pt;margin-right:4px;",
   statsBlock:
-    "font-family:'Cinzel',Georgia,serif;font-size:10pt;line-height:1.25;color:#000;",
+    "font-family:'Cinzel',Georgia,serif;font-size:10pt;line-height:1.15;" +
+    "margin:0;padding:0;color:#000;",
   traitPill:
-    "display:inline-block;font-size:8pt;font-weight:bold;text-transform:uppercase;",
-  divider: "border:0;border-top:1px solid rgba(0,0,0,0.4);margin:6px 0 10px;",
+    "font-size:8pt;font-weight:bold;text-transform:uppercase;",
+  // Hairline dividers (as background lines on divs with 0 margin)
+  hairStrong: "border-top:1px solid rgba(0,0,0,0.55);margin:4px 0 6px 0;line-height:0;font-size:0;",
+  hairSoft:   "border-top:1px solid rgba(0,0,0,0.25);margin:4px 0;line-height:0;font-size:0;",
 
-  // Body 2-col table
-  bodyTable: "width:100%;border-collapse:collapse;table-layout:fixed;",
-  colLeft:   "vertical-align:top;padding:0 10px 0 0;width:50%;",
-  colRight:  "vertical-align:top;padding:0 0 0 12px;width:50%;border-left:1px solid rgba(0,0,0,0.3);",
+  // Body table (holds columns)
+  bodyTable: "border-collapse:collapse;width:100%;margin:0;table-layout:fixed;",
+  colLeft:   "vertical-align:top;padding:0 8px 0 0;width:50%;",
+  colRight:  "vertical-align:top;padding:0 0 0 10px;width:50%;border-left:1px solid rgba(0,0,0,0.3);",
   // 3-column body: lore ~40%, each skill column ~30%
-  colLeftThree:  "vertical-align:top;padding:0 10px 0 0;width:40%;",
-  colSkillMid:   "vertical-align:top;padding:0 10px;width:30%;border-left:1px solid rgba(0,0,0,0.3);",
-  colSkillRight: "vertical-align:top;padding:0 0 0 10px;width:30%;border-left:1px solid rgba(0,0,0,0.3);",
+  colLeftThree:  "vertical-align:top;padding:0 8px 0 0;width:40%;",
+  colSkillMid:   "vertical-align:top;padding:0 8px;width:30%;border-left:1px solid rgba(0,0,0,0.3);",
+  colSkillRight: "vertical-align:top;padding:0 0 0 8px;width:30%;border-left:1px solid rgba(0,0,0,0.3);",
 
-  // Section headings (small caps, uppercase)
+  // Section headings
   sectionHead:
-    "font-family:'Cinzel',Georgia,serif;font-size:8pt;font-weight:bold;text-transform:uppercase;" +
-    "letter-spacing:0.1em;color:#000;margin:0 0 2px 0;",
-  softDivider: "border:0;border-top:1px solid rgba(0,0,0,0.25);margin:6px 0;",
+    "font-family:'Cinzel',Georgia,serif;font-size:8pt;font-weight:bold;" +
+    "text-transform:uppercase;letter-spacing:0.08em;color:#000;" +
+    "margin:0;padding:0;line-height:1.1;",
 
   // Attacks / W-R-I rows
-  attackRow: "font-size:9.5pt;line-height:1.25;color:#000;",
-  wriRow:    "font-size:9.5pt;line-height:1.35;color:#000;",
+  attackRow: "font-size:9.5pt;line-height:1.2;color:#000;margin:0;padding:0;",
+  wriRow:    "font-size:9.5pt;line-height:1.25;color:#000;margin:0;padding:0;",
   wriLabel:
-    "font-family:'Cinzel',Georgia,serif;font-size:8pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.06em;color:#000;",
+    "font-family:'Cinzel',Georgia,serif;font-size:8pt;font-weight:bold;" +
+    "text-transform:uppercase;letter-spacing:0.06em;color:#000;",
 
   // Description
-  descText:  "font-size:10pt;line-height:1.4;color:#000;margin:0;",
+  descText:  "font-size:10pt;line-height:1.3;color:#000;margin:0;padding:0;",
 
   // Skills
-  skillBlock:  "margin-bottom:8pt;",
-  skillHeader: "display:block;margin-bottom:2px;",
+  skillBlock:  "margin:0 0 6pt 0;padding:0;",
+  skillHeader: "margin:0;padding:0;line-height:1.15;",
   skillName:   "font-size:11pt;font-weight:600;color:#000;letter-spacing:0.02em;",
-  skillFreq:   "font-family:'Cinzel',Georgia,serif;font-size:9pt;color:rgba(0,0,0,0.7);margin-left:6px;",
-  skillPassive:"font-style:italic;color:#166534;font-size:9pt;margin-left:6px;",
-  skillRules:  "font-size:9.5pt;line-height:1.35;color:#000;margin:0;",
+  skillFreq:   "font-family:'Cinzel',Georgia,serif;font-size:9pt;color:rgba(0,0,0,0.7);margin-left:4px;",
+  skillPassive:"font-style:italic;color:#166534;font-size:9pt;margin-left:4px;",
+  skillRules:  "font-size:9.5pt;line-height:1.25;color:#000;margin:2px 0 0 0;padding:0;",
 };
 
 // ------------------------------------------------------------
@@ -200,8 +215,8 @@ function buildCardHTML(
 
   const headerHTML =
     `<div style="${STY.cardName}">${esc(card.name || "Unnamed NPC")}</div>` +
-    (typeTags ? `<div style="margin-top:2px;">${typeTags}</div>` : "") +
-    `<hr style="${STY.divider}"/>`;
+    (typeTags ? `<div style="margin:2px 0 0 0;padding:0;line-height:1.1;">${typeTags}</div>` : "") +
+    `<div style="${STY.hairStrong}">&nbsp;</div>`;
 
   // ── LEFT COLUMN — stats, traits, attacks, W/R/I, desc ──
   const leftParts: string[] = [];
@@ -211,22 +226,21 @@ function buildCardHTML(
   if (card.armor !== 0) statsBits.push(`Armor : ${card.armor}`);
   if (card.baseDamage) statsBits.push(`Base Damage : ${esc(String(card.baseDamage))}`);
   leftParts.push(
-    `<div style="${STY.statsBlock};margin-bottom:4px;">${statsBits.join(" &nbsp;·&nbsp; ")}</div>`
+    `<div style="${STY.statsBlock}">${statsBits.join(" &nbsp;·&nbsp; ")}</div>`
   );
 
   // Traits row (STR/DEX/…)
   if (activeTraits.length > 0) {
     const traitLine = activeTraits
-      .map(k => `<span style="${STY.traitPill};margin-left:0;margin-right:8px;">${k}:${traits[k]}</span>`)
+      .map(k => `<span style="${STY.traitPill};margin-right:6px;">${k}:${traits[k]}</span>`)
       .join("");
     leftParts.push(
-      `<div style="margin-bottom:4px;">${traitLine}</div>`
+      `<div style="margin:2px 0 0 0;padding:0;line-height:1.1;">${traitLine}</div>`
     );
   }
 
-  leftParts.push(`<hr style="${STY.softDivider}"/>`);
-
   if (baseAttacks.length > 0) {
+    leftParts.push(`<div style="${STY.hairSoft}">&nbsp;</div>`);
     const rows = baseAttacks
       .map(a => {
         const dt = damageTypes.find(d => d.id === a.damageTypeId);
@@ -243,7 +257,7 @@ function buildCardHTML(
       })
       .join("");
     leftParts.push(
-      `<div style="${STY.sectionHead}">Base Attacks</div>${rows}<hr style="${STY.softDivider}"/>`
+      `<div style="${STY.sectionHead}">Base Attacks</div>${rows}`
     );
   }
 
@@ -261,12 +275,13 @@ function buildCardHTML(
       `<div style="${STY.wriRow}"><span style="${STY.wriLabel}">Immune:</span> ${renderRefsHTML(immunities, damageTypes, skills)}</div>`
     );
   if (wriParts.length) {
-    leftParts.push(wriParts.join("") + `<hr style="${STY.softDivider}"/>`);
+    leftParts.push(`<div style="${STY.hairSoft}">&nbsp;</div>` + wriParts.join(""));
   }
 
   if (card.description) {
     leftParts.push(
-      `<p style="${STY.descText}">${renderRichHTML(card.description, damageTypes, referenceableSkills)}</p>`
+      `<div style="${STY.hairSoft}">&nbsp;</div>` +
+      `<div style="${STY.descText}">${renderRichHTML(card.description, damageTypes, referenceableSkills)}</div>`
     );
   }
 
@@ -292,7 +307,7 @@ function buildCardHTML(
       `<span style="${nameStyle}">${esc(skill.name)}</span>` +
       freqHTML +
       `</div>` +
-      `<p style="${rulesStyle}">${rulesHTML}</p>` +
+      `<div style="${rulesStyle}">${rulesHTML}</div>` +
       `</div>`
     );
   };
@@ -316,7 +331,7 @@ function buildCardHTML(
 
   const skillsColHTML = (col: typeof cardSkills) =>
     col.length === 0
-      ? `<p style="${STY.descText};opacity:0.5;font-style:italic;">No skills.</p>`
+      ? `<div style="${STY.descText};opacity:0.5;font-style:italic;">No skills.</div>`
       : col.map(renderSkillBlock).join("");
 
   // ── BODY table: left(stats/desc) + N skill columns ────
@@ -337,7 +352,14 @@ function buildCardHTML(
     bodyCells.join("") +
     `</tr></tbody></table>`;
 
-  return `<div style="${STY.frame}">${headerHTML}${bodyHTML}</div>`;
+  // Wrap the whole card in a single-cell table so the outer border
+  // survives Google Docs paste (borders on <div> get stripped).
+  return (
+    `<table style="${STY.frameTable}"><tbody><tr>` +
+    `<td style="${STY.frameCell}">` +
+    headerHTML + bodyHTML +
+    `</td></tr></tbody></table>`
+  );
 }
 
 // ------------------------------------------------------------
