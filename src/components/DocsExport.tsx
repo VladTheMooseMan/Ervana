@@ -221,81 +221,77 @@ function buildCardHTML(
     `<div style="${STY.cardName}">` +
     `${esc(card.name || "Unnamed NPC")}` +
     (typeTags ? `<br/><span style="font-size:9pt;font-weight:normal;line-height:1;">${typeTags}</span>` : "") +
-    `</div>` +
-    `<div style="${STY.hairStrong}">&nbsp;</div>`;
+    `</div>`;
 
-  // ── LEFT COLUMN — stats, traits, attacks, W/R/I, desc ──
-  const leftParts: string[] = [];
+  // ── LEFT COLUMN — everything as ONE paragraph joined by <br/> ─
+  // Adjacent <div>s create paragraph gaps in Docs. Collapse all
+  // sections (stats/traits, attacks, W-R-I, description) into a
+  // single <div> and use <br/> between sub-blocks.
+  const bits: string[] = [];
 
-  // Stats + Traits in ONE paragraph so Docs can't insert leading
-  // between them. Real spaces separate the tokens.
+  // Stats + Traits
   const statsBits: string[] = [`Body : ${card.body}`];
   if (card.armor !== 0) statsBits.push(`Armor : ${card.armor}`);
   if (card.baseDamage) statsBits.push(`Base Damage : ${esc(String(card.baseDamage))}`);
-  const statsInline = statsBits.join(" &nbsp;·&nbsp; ");
-
-  let traitsInline = "";
+  bits.push(
+    `<span style="${STY.statsBlock}">${statsBits.join(" &nbsp;·&nbsp; ")}</span>`
+  );
   if (activeTraits.length > 0) {
     const gap = "&nbsp;&nbsp;&nbsp;";
-    traitsInline = activeTraits
+    const traitLine = activeTraits
       .map(k => `<span style="${STY.traitPill}">${k}:${traits[k]}</span>`)
       .join(gap);
+    bits.push(traitLine);
   }
 
-  leftParts.push(
-    `<div style="${STY.statsBlock}">` +
-    statsInline +
-    (traitsInline ? `<br/><span style="line-height:1.15;">${traitsInline}</span>` : "") +
-    `</div>`
-  );
-
+  // Base Attacks
   if (baseAttacks.length > 0) {
-    leftParts.push(`<div style="${STY.hairSoft}">&nbsp;</div>`);
-    const rows = baseAttacks
+    const attackLines = baseAttacks
       .map(a => {
         const dt = damageTypes.find(d => d.id === a.damageTypeId);
         const dmgTypeHTML = dt
           ? `<span style="${fmtToInlineStyle(dt.format)}">${esc(dt.name)}</span>`
           : "";
         return (
-          `<div style="${STY.attackRow}">` +
+          `<span style="${STY.attackRow}">` +
           `<b>${esc(a.weaponName || "(weapon)")}</b> ` +
           `<i style="opacity:0.7;">(${esc(a.attackType)})</i> — ` +
           `${a.damage} ${dmgTypeHTML}` +
-          `</div>`
+          `</span>`
         );
       })
-      .join("");
-    leftParts.push(
-      `<div style="${STY.sectionHead}">Base Attacks</div>${rows}`
+      .join("<br/>");
+    bits.push(
+      `<span style="${STY.sectionHead}">Base Attacks</span><br/>${attackLines}`
     );
   }
 
-  const wriParts: string[] = [];
+  // Weak / Resist / Immune
+  const wriLines: string[] = [];
   if (weaknesses.length > 0)
-    wriParts.push(
-      `<div style="${STY.wriRow}"><span style="${STY.wriLabel}">Weak to:</span> ${renderRefsHTML(weaknesses, damageTypes, skills)}</div>`
+    wriLines.push(
+      `<span style="${STY.wriRow}"><span style="${STY.wriLabel}">Weak to:</span> ${renderRefsHTML(weaknesses, damageTypes, skills)}</span>`
     );
   if (resistances.length > 0)
-    wriParts.push(
-      `<div style="${STY.wriRow}"><span style="${STY.wriLabel}">Resist:</span> ${renderRefsHTML(resistances, damageTypes, skills)}</div>`
+    wriLines.push(
+      `<span style="${STY.wriRow}"><span style="${STY.wriLabel}">Resist:</span> ${renderRefsHTML(resistances, damageTypes, skills)}</span>`
     );
   if (immunities.length > 0)
-    wriParts.push(
-      `<div style="${STY.wriRow}"><span style="${STY.wriLabel}">Immune:</span> ${renderRefsHTML(immunities, damageTypes, skills)}</div>`
+    wriLines.push(
+      `<span style="${STY.wriRow}"><span style="${STY.wriLabel}">Immune:</span> ${renderRefsHTML(immunities, damageTypes, skills)}</span>`
     );
-  if (wriParts.length) {
-    leftParts.push(`<div style="${STY.hairSoft}">&nbsp;</div>` + wriParts.join(""));
+  if (wriLines.length) {
+    bits.push(wriLines.join("<br/>"));
   }
 
+  // Description
   if (card.description) {
-    leftParts.push(
-      `<div style="${STY.hairSoft}">&nbsp;</div>` +
-      `<div style="${STY.descText}">${renderRichHTML(card.description, damageTypes, referenceableSkills)}</div>`
+    bits.push(
+      `<span style="${STY.descText}">${renderRichHTML(card.description, damageTypes, referenceableSkills)}</span>`
     );
   }
 
-  const leftHTML = leftParts.join("") || "&nbsp;";
+  const leftHTML = `<div style="line-height:1.25;">${bits.join("<br/>")}</div>`;
 
   // ── RIGHT COLUMN(S) — skills ──────────────────────────
   // If the card is set to 3-column layout, split skills into
