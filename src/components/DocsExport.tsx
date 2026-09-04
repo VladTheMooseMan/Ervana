@@ -311,16 +311,14 @@ function buildCardHTML(
         : `<span style="${STY.skillFreq}">&nbsp;&nbsp;${esc(freqLabel(entry.frequency))}</span>`;
     const otherSkills = referenceableSkills.filter(s => s.id !== skill.id);
     const rulesHTML = renderRichHTML(skill.rulesText, damageTypes, otherSkills);
-    // Put name+freq+rules all in one <div> as inline spans, with just
-    // a single non-breaking space between the header and the rules
-    // text. This prevents Google Docs from inserting a paragraph gap
-    // between skill name and rules — Docs adds ~1 line of leading
-    // after every <div>/<br>.
+    // Skill name+freq on the first line, rules on the next line —
+    // use <br/> (Shift+Enter equivalent) inside a single <div> so
+    // Docs does NOT add a full-paragraph blank line between them.
     return (
       `<div style="${STY.skillBlock}">` +
       `<span style="${nameStyle}">${esc(skill.name)}</span>` +
       freqHTML +
-      `&nbsp; ` +
+      `<br/>` +
       `<span style="${rulesStyle}">${rulesHTML}</span>` +
       `</div>`
     );
