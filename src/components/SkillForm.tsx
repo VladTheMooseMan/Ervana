@@ -192,13 +192,6 @@ export function SkillForm({ initial, onSave, onCancel }: {
     onSave({ ...skill, name: trimmed });
   }
 
-  // Shared styling between the textarea and its mirror div. Both
-  // MUST render text at the exact same pixel positions or the ghost
-  // will drift. We pin box-sizing, font, padding, line-height, and
-  // white-space behavior.
-  const sharedTextClass =
-    "font-serif text-sm px-3 py-2 rounded-md border border-custom-brown/20 w-full min-h-[80px] leading-[1.35]";
-
   return (
     <div className="bg-paper-dark border border-custom-brown/10 rounded-lg p-4 mb-4">
       <div className="grid grid-cols-2 gap-3 mb-3">
@@ -241,30 +234,31 @@ export function SkillForm({ initial, onSave, onCancel }: {
             Autocomplete (Tab accepts · Alt-↑/↓ cycles · Esc dismisses)
           </label>
         </div>
-        <div className="relative mt-1">
-          {/* Ghost-text mirror layer sits UNDER the textarea. It renders
-              the current text (invisibly) plus the ghost suggestion in
-              faded ink at the correct offset. */}
+        <div className="relative mt-1 rounded-md border border-custom-brown/20 bg-paper overflow-hidden">
+          {/* Ghost-text mirror layer. It mirrors the textarea's typed
+              text in fully-transparent color and inserts a visible,
+              faint italic <span> at the caret position. Sits BEHIND
+              the textarea; the textarea's own background is transparent
+              so the ghost bleeds through. */}
           <div
             ref={mirrorRef}
             aria-hidden="true"
-            className={sharedTextClass + " absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden bg-transparent"}
-            style={{ color: "transparent" }}
+            className="absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden font-serif text-sm px-3 py-2 leading-[1.35]"
+            style={{ color: "transparent", zIndex: 1 }}
           >
-            {skill.rulesText.slice(0, caretIdx)}
+            <span>{skill.rulesText.slice(0, caretIdx)}</span>
             {ghostText && (
-              <span style={{ color: "rgba(74, 55, 40, 0.45)", fontStyle: "italic" }}>
+              <span style={{ color: "rgba(74, 55, 40, 0.55)", fontStyle: "italic" }}>
                 {ghostText}
               </span>
             )}
-            {skill.rulesText.slice(caretIdx)}
-            {/* Trailing space so line wrapping matches the textarea. */}
+            <span>{skill.rulesText.slice(caretIdx)}</span>
             {"\u200b"}
           </div>
           <textarea
             ref={rulesRef}
-            className={sharedTextClass + " bg-paper text-custom-brown outline-none resize-y relative"}
-            style={{ background: "transparent", position: "relative" }}
+            className="relative block w-full font-serif text-sm px-3 py-2 min-h-[80px] leading-[1.35] text-custom-brown outline-none resize-y bg-transparent border-0"
+            style={{ zIndex: 2 }}
             value={skill.rulesText}
             onChange={e => {
               const val = e.target.value;
@@ -282,8 +276,6 @@ export function SkillForm({ initial, onSave, onCancel }: {
             onBlur={() => setSuggestions([])}
             placeholder="Describe what this skill does…"
           />
-          {/* Solid paper background rendered BEHIND both layers. */}
-          <div className="absolute inset-0 bg-paper rounded-md -z-10" />
         </div>
         {activeSuggestion && suggestions.length > 1 && (
           <div className="mt-1 text-[10px] text-custom-brown/50 font-serif">
