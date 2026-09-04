@@ -8,9 +8,13 @@
 // Duplicate-name protection: onSave rejects skills whose name matches an
 // existing skill (case-insensitive) unless it is the same id being edited.
 //
-// Autocomplete: while typing in Rules Text, an overlay dropdown suggests
-// completions trained on ALL existing skills' names + rules text. Tab or
-// Enter accepts the top suggestion, arrow keys navigate, Esc dismisses.
+// Autocomplete: while typing in Rules Text, INLINE GHOST TEXT is rendered
+// in the textarea past the caret. Trained on ALL existing skills' names +
+// rules text; retrains automatically as new skills are added to the store.
+//   - Tab            = accept ghost text
+//   - ArrowUp/Down   = cycle through alternative suggestions
+//   - Esc            = dismiss
+//   - just keep typing to ignore
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -26,6 +30,7 @@ import {
   applySuggestion,
   type Suggestion,
   type AutocompleteModel,
+  type TypingContext,
 } from "../skillAutocomplete";
 
 export function emptySkill(): Skill {
@@ -38,6 +43,27 @@ export function emptySkill(): Skill {
   };
 }
 
+// ────────────────────────────────────────────────────────────────
+// Given a context + suggestion, compute what should appear as ghost
+// text past the caret in the textarea.
+// ────────────────────────────────────────────────────────────────
+function computeGhostText(
+  text: string,
+  ctx: TypingContext,
+  sug: Suggestion,
+): string {
+  // Simulate an insertion and pull out the characters that would be
+  // added *after* the current caret position.
+  const before = text.slice(0, ctx.prefixStart);
+  let insertion = sug.text;
+  if (ctx.prefix.length === 0 && before.length > 0 && !/\s$/.test(before)) {
+    insertion = " " + insertion;
+  }
+  // The portion of `insertion` that overlaps with what's already been
+  // typed as the prefix. The rest is what we render as ghost.
+  return insertion.slice(ctx.prefix.length);
+}
+
 export function SkillForm({ initial, onSave, onCancel }: {
   initial?: Skill; onSave: (s: Skill) => void; onCancel: () => void;
 }) {
@@ -48,9 +74,12 @@ export function SkillForm({ initial, onSave, onCancel }: {
   const hasDomain = skill.category === "SPELL" || skill.category === "TALENT";
 
   // ── Autocomplete state ──
+  // Model retrains automatically whenever the store's skill list
+  // changes, so any skill added later is immediately part of the
+  // corpus without a page reload.
   const rulesRef = useRef<HTMLTextAreaElement | null>(null);
+  const mirrorRef = useRef<HTMLDivElement | null>(null);
   const model: AutocompleteModel = useMemo(() => {
-    // Exclude the skill we're editing so it doesn't pollute its own training.
     const others = skills.filter(s => s.id !== skill.id);
     return trainModel(others);
   }, [skills, skill.id]);
@@ -59,69 +88,89 @@ export function SkillForm({ initial, onSave, onCancel }: {
     [skills, skill.id],
   );
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [acOpen, setAcOpen] = useState(false);
   const [acIndex, setAcIndex] = useState(0);
   const [acEnabled, setAcEnabled] = useState(true);
-  const [caretPos, setCaretPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [caretIdx, setCaretIdx] = useState(0);
+
+  const activeSuggestion: Suggestion | null =
+    acEnabled && suggestions.length > 0 ? suggestions[acIndex] : null;
+  const currentCtx: TypingContext = useMemo(
+    () => analyzeTyping(skill.rulesText, caretIdx),
+    [skill.rulesText, caretIdx],
+  );
+  const ghostText: string = activeSuggestion
+    ? computeGhostText(skill.rulesText, currentCtx, activeSuggestion)
+    : "";
 
   function refreshSuggestions(nextText: string, caret: number) {
-    if (!acEnabled) { setAcOpen(false); return; }
+    setCaretIdx(caret);
+    if (!acEnabled) { setSuggestions([]); return; }
     const ctx = analyzeTyping(nextText, caret);
-    // Only show completions once user has typed at least one word char,
-    // or when there's a prevWord (bigram prediction).
-    if (ctx.prefix.length === 0 && !ctx.prevWord) { setAcOpen(false); return; }
+    // Only surface ghost text at word boundaries or mid-word — if the
+    // caret is followed by a non-whitespace char (mid-typing existing
+    // word), suppress it to avoid confusing "completions" over text.
+    const nextChar = nextText[caret];
+    if (nextChar && !/\s/.test(nextChar)) { setSuggestions([]); return; }
+    if (ctx.prefix.length === 0 && !ctx.prevWord) { setSuggestions([]); return; }
     const list = suggest(ctx, model, skillNames, 8);
     setSuggestions(list);
     setAcIndex(0);
-    setAcOpen(list.length > 0);
   }
 
-  function acceptSuggestion(sug: Suggestion) {
+  function acceptSuggestion() {
     const ta = rulesRef.current;
-    if (!ta) return;
+    const sug = activeSuggestion;
+    if (!ta || !sug) return;
     const ctx = analyzeTyping(skill.rulesText, ta.selectionStart ?? skill.rulesText.length);
     const { newText, newCaret } = applySuggestion(skill.rulesText, ctx, sug);
     set({ rulesText: newText });
-    setAcOpen(false);
-    // Restore caret after React re-renders.
+    setSuggestions([]);
     requestAnimationFrame(() => {
       const el = rulesRef.current;
       if (!el) return;
       el.focus();
       el.setSelectionRange(newCaret, newCaret);
+      setCaretIdx(newCaret);
     });
   }
 
   function onRulesKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (!acOpen || suggestions.length === 0) return;
-    if (e.key === "ArrowDown") {
+    if (suggestions.length === 0) return;
+    if (e.key === "Tab") {
       e.preventDefault();
-      setAcIndex(i => (i + 1) % suggestions.length);
+      acceptSuggestion();
+    } else if (e.key === "ArrowDown") {
+      // Alt-Down or Ctrl-Down cycles suggestions; plain Down should
+      // still move the caret within the textarea like normal.
+      if (e.altKey || e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setAcIndex(i => (i + 1) % suggestions.length);
+      }
     } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setAcIndex(i => (i - 1 + suggestions.length) % suggestions.length);
-    } else if (e.key === "Tab" || e.key === "Enter") {
-      e.preventDefault();
-      acceptSuggestion(suggestions[acIndex]);
+      if (e.altKey || e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setAcIndex(i => (i - 1 + suggestions.length) % suggestions.length);
+      }
     } else if (e.key === "Escape") {
       e.preventDefault();
-      setAcOpen(false);
+      setSuggestions([]);
     }
   }
 
-  // Recompute caret pixel position for dropdown anchoring.
+  // Keep mirror scroll pinned to textarea scroll so the ghost text
+  // stays aligned even in a long field.
   useEffect(() => {
     const ta = rulesRef.current;
-    if (!ta || !acOpen) return;
-    // Very cheap approximation: use the textarea's bounding rect and offset
-    // by a fixed distance from the top-left. Good enough for a floating
-    // dropdown pinned to the bottom-left of the field.
-    const rect = ta.getBoundingClientRect();
-    setCaretPos({
-      top: rect.height,
-      left: 0,
-    });
-  }, [acOpen, skill.rulesText]);
+    const mir = mirrorRef.current;
+    if (!ta || !mir) return;
+    const sync = () => {
+      mir.scrollTop = ta.scrollTop;
+      mir.scrollLeft = ta.scrollLeft;
+    };
+    ta.addEventListener("scroll", sync);
+    sync();
+    return () => ta.removeEventListener("scroll", sync);
+  }, []);
 
   function handleSave() {
     const trimmed = skill.name.trim();
@@ -131,6 +180,13 @@ export function SkillForm({ initial, onSave, onCancel }: {
     setNameError(null);
     onSave({ ...skill, name: trimmed });
   }
+
+  // Shared styling between the textarea and its mirror div. Both
+  // MUST render text at the exact same pixel positions or the ghost
+  // will drift. We pin box-sizing, font, padding, line-height, and
+  // white-space behavior.
+  const sharedTextClass =
+    "font-serif text-sm px-3 py-2 rounded-md border border-custom-brown/20 w-full min-h-[80px] leading-[1.35]";
 
   return (
     <div className="bg-paper-dark border border-custom-brown/10 rounded-lg p-4 mb-4">
@@ -161,62 +217,66 @@ export function SkillForm({ initial, onSave, onCancel }: {
           <input className="bg-paper border border-custom-brown/20 rounded-md text-custom-brown px-3 py-2 font-serif text-sm w-full outline-none mt-1" value={skill.domain ?? ""} onChange={e => set({ domain: e.target.value })} placeholder="e.g. Combat, Evocation…" />
         </div>
       )}
-      <div className="mb-3 relative">
+      <div className="mb-3">
         <div className="flex items-center justify-between">
           <label className="font-cinzel text-custom-brown text-xs tracking-widest uppercase">Rules Text</label>
           <label className="flex items-center gap-1 text-[10px] text-custom-brown/70 font-serif cursor-pointer select-none">
             <input
               type="checkbox"
               checked={acEnabled}
-              onChange={e => { setAcEnabled(e.target.checked); if (!e.target.checked) setAcOpen(false); }}
+              onChange={e => { setAcEnabled(e.target.checked); if (!e.target.checked) setSuggestions([]); }}
               className="cursor-pointer"
             />
-            Autocomplete (Tab/Enter accepts, Esc dismisses)
+            Autocomplete (Tab accepts · Alt-↑/↓ cycles · Esc dismisses)
           </label>
         </div>
-        <textarea
-          ref={rulesRef}
-          className="bg-paper border border-custom-brown/20 rounded-md text-custom-brown px-3 py-2 font-serif text-sm w-full outline-none min-h-[80px] resize-y mt-1"
-          value={skill.rulesText}
-          onChange={e => {
-            const val = e.target.value;
-            set({ rulesText: val });
-            const caret = e.target.selectionStart ?? val.length;
-            refreshSuggestions(val, caret);
-          }}
-          onKeyDown={onRulesKeyDown}
-          onBlur={() => setTimeout(() => setAcOpen(false), 120)}
-          onClick={e => {
-            const el = e.currentTarget;
-            refreshSuggestions(el.value, el.selectionStart ?? 0);
-          }}
-          placeholder="Describe what this skill does…"
-        />
-        {acOpen && suggestions.length > 0 && (
+        <div className="relative mt-1">
+          {/* Ghost-text mirror layer sits UNDER the textarea. It renders
+              the current text (invisibly) plus the ghost suggestion in
+              faded ink at the correct offset. */}
           <div
-            className="absolute z-40 bg-paper border border-custom-brown/40 rounded-md shadow-lg overflow-hidden"
-            style={{ top: caretPos.top + 4, left: 8, minWidth: 240, maxWidth: 360 }}
+            ref={mirrorRef}
+            aria-hidden="true"
+            className={sharedTextClass + " absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden bg-transparent"}
+            style={{ color: "transparent" }}
           >
-            <div className="px-2 py-1 text-[10px] uppercase tracking-widest font-cinzel text-custom-brown/60 border-b border-custom-brown/10 bg-paper-dark">
-              Suggestions
-            </div>
-            {suggestions.map((s, i) => (
-              <button
-                key={s.text + i}
-                type="button"
-                onMouseDown={ev => { ev.preventDefault(); acceptSuggestion(s); }}
-                onMouseEnter={() => setAcIndex(i)}
-                className={
-                  "block w-full text-left px-2 py-1 text-sm font-serif " +
-                  (i === acIndex
-                    ? "bg-custom-gold/30 text-custom-brown"
-                    : "text-custom-brown hover:bg-paper-dark")
-                }
-              >
-                <span className="font-medium">{s.label}</span>
-                <span className="ml-2 text-[10px] uppercase text-custom-brown/50">{s.kind}</span>
-              </button>
-            ))}
+            {skill.rulesText.slice(0, caretIdx)}
+            {ghostText && (
+              <span style={{ color: "rgba(74, 55, 40, 0.45)", fontStyle: "italic" }}>
+                {ghostText}
+              </span>
+            )}
+            {skill.rulesText.slice(caretIdx)}
+            {/* Trailing space so line wrapping matches the textarea. */}
+            {"\u200b"}
+          </div>
+          <textarea
+            ref={rulesRef}
+            className={sharedTextClass + " bg-paper text-custom-brown outline-none resize-y relative"}
+            style={{ background: "transparent", position: "relative" }}
+            value={skill.rulesText}
+            onChange={e => {
+              const val = e.target.value;
+              set({ rulesText: val });
+              const caret = e.target.selectionStart ?? val.length;
+              refreshSuggestions(val, caret);
+            }}
+            onKeyDown={onRulesKeyDown}
+            onKeyUp={e => setCaretIdx(e.currentTarget.selectionStart ?? 0)}
+            onClick={e => {
+              const el = e.currentTarget;
+              refreshSuggestions(el.value, el.selectionStart ?? 0);
+            }}
+            onSelect={e => setCaretIdx((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
+            onBlur={() => setSuggestions([])}
+            placeholder="Describe what this skill does…"
+          />
+          {/* Solid paper background rendered BEHIND both layers. */}
+          <div className="absolute inset-0 bg-paper rounded-md -z-10" />
+        </div>
+        {activeSuggestion && suggestions.length > 1 && (
+          <div className="mt-1 text-[10px] text-custom-brown/50 font-serif">
+            {acIndex + 1} / {suggestions.length} · Alt-↑/↓ to cycle
           </div>
         )}
       </div>
