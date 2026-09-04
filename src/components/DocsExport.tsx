@@ -173,15 +173,15 @@ const STY = {
   descText:  "font-size:10pt;line-height:1.3;color:#000;margin:0;padding:0;",
 
   // Skills
-  // NOTE: All three spans (name, freq, rules) MUST use the same
-  // font-size so Google Docs computes the same line-height for
-  // every line. Otherwise Docs picks the tallest font on the row
-  // and the <br/> between them drops a full extra line.
-  skillBlock:  "margin:0 0 6pt 0;padding:0;line-height:1.1;font-size:9.5pt;",
-  skillName:   "font-size:9.5pt;font-weight:700;color:#000;letter-spacing:0.02em;line-height:1.1;",
-  skillFreq:   "font-family:'Cinzel',Georgia,serif;font-size:9.5pt;color:rgba(0,0,0,0.7);line-height:1.1;",
-  skillPassive:"font-style:italic;color:#166534;font-size:9.5pt;line-height:1.1;",
-  skillRules:  "font-size:9.5pt;line-height:1.2;color:#000;margin:0;padding:0;",
+  // Two <p> lines with margin:0 give a true "line after line" drop
+  // in Google Docs — no paragraph leading between them, and a
+  // small margin after the rules paragraph separates skills.
+  skillHeadLine:  "margin:0;padding:0;line-height:1.15;font-size:9.5pt;font-family:Georgia,serif;",
+  skillRulesLine: "margin:0 0 6pt 0;padding:0;line-height:1.2;font-size:9.5pt;font-family:Georgia,serif;",
+  skillName:      "font-size:9.5pt;font-weight:700;color:#000;letter-spacing:0.02em;",
+  skillFreq:      "font-family:'Cinzel',Georgia,serif;font-size:9.5pt;color:rgba(0,0,0,0.7);",
+  skillPassive:   "font-style:italic;color:#166534;font-size:9.5pt;",
+  skillRules:     "font-size:9.5pt;color:#000;",
 };
 
 // ------------------------------------------------------------
@@ -310,15 +310,16 @@ function buildCardHTML(
         : `<span style="${STY.skillFreq}">&nbsp;&nbsp;${esc(freqLabel(entry.frequency))}</span>`;
     const otherSkills = referenceableSkills.filter(s => s.id !== skill.id);
     const rulesHTML = renderRichHTML(skill.rulesText, damageTypes, otherSkills);
-    // Wrap in <p> (not <div>) — Google Docs treats <p> as a
-    // paragraph unit and honors margin overrides on paste, and it
-    // preserves an internal <br/> as a soft-return (single-line
-    // drop) instead of a paragraph break.
+    // Two separate <p> blocks with margin:0 on both. Google Docs
+    // treats <p> as a paragraph and honors inline margin:0 on
+    // paste, giving line-after-line spacing without a full blank
+    // line between the header and the rules.
     return (
-      `<p style="${STY.skillBlock}">` +
+      `<p style="${STY.skillHeadLine}">` +
       `<span style="${nameStyle}">${esc(skill.name)}</span>` +
       freqHTML +
-      `<br>` +
+      `</p>` +
+      `<p style="${STY.skillRulesLine}">` +
       `<span style="${rulesStyle}">${rulesHTML}</span>` +
       `</p>`
     );
