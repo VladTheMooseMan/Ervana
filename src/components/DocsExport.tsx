@@ -310,18 +310,17 @@ function buildCardHTML(
         : `<span style="${STY.skillFreq}">&nbsp;&nbsp;${esc(freqLabel(entry.frequency))}</span>`;
     const otherSkills = referenceableSkills.filter(s => s.id !== skill.id);
     const rulesHTML = renderRichHTML(skill.rulesText, damageTypes, otherSkills);
-    // Skill name+freq on the first line, rules on the next line.
-    // A plain <br/> gets treated as a paragraph break by Google
-    // Docs and inserts leading. The real "soft return" character
-    // (U+2028 LINE SEPARATOR) is what Shift+Enter emits in Docs and
-    // is preserved on paste as a true one-line drop.
+    // Wrap in <p> (not <div>) — Google Docs treats <p> as a
+    // paragraph unit and honors margin overrides on paste, and it
+    // preserves an internal <br/> as a soft-return (single-line
+    // drop) instead of a paragraph break.
     return (
-      `<div style="${STY.skillBlock}">` +
+      `<p style="${STY.skillBlock}">` +
       `<span style="${nameStyle}">${esc(skill.name)}</span>` +
       freqHTML +
-      `\u2028` +
+      `<br>` +
       `<span style="${rulesStyle}">${rulesHTML}</span>` +
-      `</div>`
+      `</p>`
     );
   };
 
